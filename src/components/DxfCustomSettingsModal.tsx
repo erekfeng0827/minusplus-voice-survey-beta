@@ -32,6 +32,13 @@ export const DxfCustomSettingsModal: React.FC<DxfCustomSettingsModalProps> = ({
 
   // AutoCAD Color Mapping Options
   const acadColors = [
+    { num: 9, name: 'ACI 9（原圖牆線）', hex: '#c0c0c0' },
+    { num: 11, name: 'ACI 11（原圖門）', hex: '#ff7f7f' },
+    { num: 103, name: 'ACI 103（原圖水電）', hex: '#6d8f78' },
+    { num: 125, name: 'ACI 125（原圖標示）', hex: '#7d789b' },
+    { num: 147, name: 'ACI 147（原圖樑）', hex: '#9b6b88' },
+    { num: 167, name: 'ACI 167（原圖潛色底）', hex: '#7f9b8f' },
+    { num: 245, name: 'ACI 245（原圖文字）', hex: '#777777' },
     { num: 1, name: 'Red (紅)', hex: '#ef4444' },
     { num: 2, name: 'Yellow (黃)', hex: '#eab308' },
     { num: 3, name: 'Green (綠)', hex: '#22c55e' },
@@ -291,6 +298,7 @@ export const DxfCustomSettingsModal: React.FC<DxfCustomSettingsModalProps> = ({
                         <option value="DASHED">DASHED (虛線)</option>
                         <option value="CENTER">CENTER (中心軸線)</option>
                         <option value="HIDDEN">HIDDEN (隱藏線)</option>
+                        <option value="PHANTOM2">PHANTOM2 (原圖樑線／標示)</option>
                       </select>
                     </td>
 

@@ -90,6 +90,36 @@ export interface StitchedFloorPlanResult {
   totalCoincidentWallLength?: number;
 }
 
+export interface ShellPoint { x: number; y: number; }
+
+export interface ProjectShellSegment {
+  id: string;
+  layer: string;
+  entityType: 'LINE' | 'LWPOLYLINE';
+  points: ShellPoint[];
+  closed: boolean;
+}
+
+export interface RoomZone {
+  id: string;
+  name: string;
+  polygon: ShellPoint[];
+  sourceLayer: string;
+}
+
+export interface ProjectShell {
+  id: string;
+  sourceFileName: string;
+  sourceFormat: 'DXF' | 'MANUAL';
+  unitName: string;
+  scaleToCm: number;
+  width: number;
+  length: number;
+  segments: ProjectShellSegment[];
+  zones: RoomZone[];
+  importedAt: string;
+}
+
 export interface WindowOpening {
   id: string;
   name: string;
@@ -288,9 +318,10 @@ export interface DxfLayerConfigItem {
   key: string;
   defaultName: string;
   customName: string;
-  colorNumber: number; // AutoCAD color index 1-7
+  colorNumber: number; // AutoCAD color index 1-255
   colorHex: string;
-  lineType: 'CONTINUOUS' | 'DASHED' | 'CENTER' | 'HIDDEN';
+  lineType: 'CONTINUOUS' | 'DASHED' | 'CENTER' | 'HIDDEN' | 'PHANTOM2';
+  lineweight?: number; // DXF group 370, 1/100 mm; -3 = drawing default
   enabled: boolean;
   description: string;
 }
@@ -815,6 +846,4 @@ export interface SuLayoutExportConfig {
   includeFurnitureLayers: boolean;
   includeMepLightingCircuit: boolean;
 }
-
-
 

@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, FileText, HardDrive, Loader2, Upload, X } from 'lucide-react';
-import { RoomData } from '../types';
+import { ProjectShell, RoomData } from '../types';
 import { parseSafeDxfShells, SafeDxfShellResult } from '../utils/safeDxfShellImporter';
 
 interface FloorplanPdfImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   onImportRooms: (rooms: RoomData[], projectName?: string) => void;
+  onImportShell: (shell: ProjectShell, rooms: RoomData[], projectName?: string) => void;
   onNotify: (msg: string) => void;
 }
 
@@ -85,7 +86,7 @@ const readStoredMeta = (): StoredDrawingMeta | null => {
   }
 };
 
-export const FloorplanPdfImportModal: React.FC<FloorplanPdfImportModalProps> = ({ isOpen, onClose, onImportRooms, onNotify }) => {
+export const FloorplanPdfImportModal: React.FC<FloorplanPdfImportModalProps> = ({ isOpen, onClose, onImportRooms, onImportShell, onNotify }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [storedMeta, setStoredMeta] = useState<StoredDrawingMeta | null>(() => readStoredMeta());
   const [isSaving, setIsSaving] = useState(false);
@@ -128,7 +129,7 @@ export const FloorplanPdfImportModal: React.FC<FloorplanPdfImportModalProps> = (
       setStoredMeta(meta);
       setDxfResult(parsed);
       setRoomName(file.name.replace(/\.[^/.]+$/, '') || '待人工描圖空間');
-      if (parsed?.success) onNotify(`DXF 已读取 ${parsed.rooms.length} 个真实几何边界；门窗梁柱仍待现场确认。`);
+      if (parsed?.success) onNotify(`DXF 已读取连续整户底图与 ${parsed.rooms.length} 个可辨识空间；门窗梁柱仍待现场确认。`);
       else if (extension === 'dxf') onNotify(`DXF 已保存，但安全解析未通过：${parsed?.error || '无法读取几何'}。`);
       else onNotify(extension === 'dwg' ? 'DWG 已保存；浏览器无法直接解析二进制 DWG，请转存 DXF 后再导入。' : '图面已保存到本机；PDF／图片目前进入人工描图流程。');
     } catch (reason) {
@@ -152,9 +153,9 @@ export const FloorplanPdfImportModal: React.FC<FloorplanPdfImportModalProps> = (
   };
 
   const importParsedDxf = () => {
-    if (!dxfResult?.success || dxfResult.rooms.length === 0 || !storedMeta) return;
-    onImportRooms(dxfResult.rooms, storedMeta.name.replace(/\.[^/.]+$/, ''));
-    onNotify(`已导入 ${dxfResult.rooms.length} 个 DXF 几何空模；请逐间核对尺寸与补录门窗梁柱。`);
+    if (!dxfResult?.success || !dxfResult.shell || !storedMeta) return;
+    onImportShell(dxfResult.shell, dxfResult.rooms, storedMeta.name.replace(/\.[^/.]+$/, ''));
+    onNotify(`已导入连续整户 DXF 底图与 ${dxfResult.rooms.length} 个空间候选；请核对比例并补录门窗梁柱。`);
     onClose();
   };
 
@@ -191,8 +192,8 @@ export const FloorplanPdfImportModal: React.FC<FloorplanPdfImportModalProps> = (
                 <div className="min-w-0"><p className="break-all font-bold">本機已保存：{storedMeta.name}</p><p className="mt-1">{(storedMeta.size / 1024 / 1024).toFixed(2)} MB · {new Date(storedMeta.savedAt).toLocaleString('zh-TW')}</p></div>
               </div>
               {dxfResult?.success ? <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs text-emerald-600">
-                <p className="font-bold">DXF 几何读取完成：{dxfResult.rooms.length} 个空模候选</p>
-                <p className="mt-1">单位 {dxfResult.metadata.unitName} · 图元 {dxfResult.metadata.entityCount} · 闭合边界 {dxfResult.metadata.closedShellCount}。只建立可证明的边界，不猜门窗梁柱。</p>
+                <p className="font-bold">DXF 連續整戶底圖讀取完成</p>
+                <p className="mt-1">单位 {dxfResult.metadata.unitName} · 图元 {dxfResult.metadata.entityCount} · 可辨识空间 {dxfResult.rooms.length}。保留同一坐标系，不再拆成互不相连的房间卡片。</p>
               </div> : <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-600">
                 <p className="font-bold">{dxfResult ? 'DXF 安全解析未通过' : '人工描图模式'}</p>
                 <p className="mt-1">{dxfResult?.error || '系统不会从 PDF、图片或 DWG 猜测房间、门窗、梁柱与比例尺。'}</p>
@@ -213,7 +214,7 @@ export const FloorplanPdfImportModal: React.FC<FloorplanPdfImportModalProps> = (
 
         <footer className="flex flex-col-reverse gap-2 border-t survey-border p-4 sm:flex-row sm:justify-end">
           <button type="button" onClick={onClose} className="rounded-xl border survey-border px-4 py-2.5 text-sm font-bold survey-text">稍後處理</button>
-          {dxfResult?.success ? <button type="button" onClick={importParsedDxf} disabled={isSaving} className="flex items-center justify-center gap-2 rounded-xl bg-[#23301F] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-40"><CheckCircle2 className="h-4 w-4" />导入 DXF 空模并核对</button> : <button type="button" onClick={startManualTrace} disabled={!storedMeta || isSaving} className="flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-bold text-black disabled:cursor-not-allowed disabled:opacity-40"><CheckCircle2 className="h-4 w-4" />建立空間並繼續口述</button>}
+          {dxfResult?.success ? <button type="button" onClick={importParsedDxf} disabled={isSaving} className="flex items-center justify-center gap-2 rounded-xl bg-[#B4503A] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-40"><CheckCircle2 className="h-4 w-4" />導入連續整戶底圖</button> : <button type="button" onClick={startManualTrace} disabled={!storedMeta || isSaving} className="flex items-center justify-center gap-2 rounded-xl bg-[#B4503A] px-5 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"><CheckCircle2 className="h-4 w-4" />建立空間並繼續口述</button>}
         </footer>
       </div>
     </div>

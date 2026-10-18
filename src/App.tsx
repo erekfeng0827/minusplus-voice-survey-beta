@@ -1,7 +1,7 @@
 // --- START OF FILE App.tsx (Minusplus 四向引導全景版) ---
 
 import React, { useState, useEffect } from 'react';
-import { FurnitureItem, PersonalDetailBlockItem, PlacedBlockItem, RoomData, VoiceMemo, RoomMaterials, SunlightConfig } from './types';
+import { FurnitureItem, PersonalDetailBlockItem, PlacedBlockItem, ProjectShell, RoomData, VoiceMemo, RoomMaterials, SunlightConfig } from './types';
 import { INITIAL_ROOMS } from './data/defaultProject';
 import { MasterFloorPlanView } from './components/MasterFloorPlanView';
 import { RealScene3DDeepLinkModal } from './components/RealScene3DDeepLinkModal';
@@ -66,6 +66,7 @@ import { CleanStepHeader } from './components/CleanStepHeader';
 import { CleanMeasureWorkspace } from './components/CleanMeasureWorkspace';
 import { FloorplanPdfImportModal } from './components/FloorplanPdfImportModal';
 import { CleanLaunchScreen } from './components/CleanLaunchScreen';
+import { WholeHouseShellCanvas } from './components/WholeHouseShellCanvas';
 import { useAuth } from './context/AuthContext';
 import { downloadDxfFile } from './utils/dxfExporter';
 import { createCleanRoomFromTemplate, ROOM_TEMPLATES } from './data/roomTemplates';
@@ -84,7 +85,7 @@ export default function App() {
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('minusplus_ui_theme');
-    return saved === 'light' ? 'light' : 'dark';
+    return saved === 'dark' ? 'dark' : 'light';
   });
 
   useEffect(() => {
@@ -127,6 +128,15 @@ export default function App() {
     }
     return Array.isArray(INITIAL_ROOMS) && INITIAL_ROOMS.length > 0 ? INITIAL_ROOMS : [];
   });
+  const [projectShell, setProjectShell] = useState<ProjectShell | null>(() => {
+    try {
+      const saved = localStorage.getItem('minusplus_project_shell_v1');
+      return saved ? JSON.parse(saved) as ProjectShell : null;
+    } catch {
+      return null;
+    }
+  });
+  const [showWholeHouse, setShowWholeHouse] = useState(true);
   
   const [selectedRoomId, setSelectedRoomId] = useState<string>(() => {
      // Ensure we pick a valid ID if rooms exist
@@ -286,6 +296,8 @@ export default function App() {
     setHistory([freshRooms]);
     setHistoryIndex(0);
     setRooms(freshRooms);
+    setProjectShell(null);
+    localStorage.removeItem('minusplus_project_shell_v1');
     setSelectedRoomId(freshRooms[0].id);
     showToast('已成功開立純淨新案場！');
   };
@@ -378,7 +390,7 @@ export default function App() {
     if (workflow === 'audit') setActiveMainTab('blueprints');
   }, [workflow]);
 
-  const startBlankProject = () => {
+  const startBlankProject = (kind: 'apartment' | 'townhouse', condition: 'new_build' | 'shell') => {
     const now = Date.now();
     const blankRoom: RoomData = {
       id: `room-entry-${now}`,
@@ -394,7 +406,8 @@ export default function App() {
       beams: [], doors: [], windows: [], voiceMemos: [], electricalPoints: [], placedBlocks: [], furniture: [],
       lastUpdated: new Date().toISOString(),
     };
-    handleStartFreshProject([blankRoom], '未命名丈量案');
+    blankRoom.notes = [`建築類型：${kind === 'apartment' ? '大樓' : '透天'}`, `現場狀態：${condition === 'new_build' ? '新成屋' : '毛胚'}`];
+    handleStartFreshProject([blankRoom], `${kind === 'apartment' ? '大樓' : '透天'}·${condition === 'new_build' ? '新成屋' : '毛胚'}丈量案`);
     setCleanStep('1_survey');
     setWorkflow('measure');
     setShowLaunchScreen(false);
@@ -425,8 +438,9 @@ export default function App() {
       <CleanLaunchScreen
         hasSavedProject={Boolean(localStorage.getItem('minusplus_active_rooms'))}
         savedProjectName={projectName}
+        theme={theme}
+        onToggleTheme={() => setTheme((value) => value === 'dark' ? 'light' : 'dark')}
         onStartBlank={startBlankProject}
-        onStartTownhouse={startTownhouseProject}
         onUseExample={useCompleteExample}
         onContinue={() => setShowLaunchScreen(false)}
       />
@@ -435,7 +449,7 @@ export default function App() {
 
   return (
     // 🌟 100% 滿版無邊際畫布 (Overflow Hidden)
-    <div data-theme={theme} className="survey-app relative w-full h-screen overflow-hidden antialiased selection:bg-[#E0A83C] selection:text-[#23301F]">
+    <div data-theme={theme} className="survey-app survey-light-surface relative w-full h-screen overflow-hidden antialiased selection:bg-[#B4503A]/25 selection:text-[#23301F]">
       
       {/* 🌟 完美植入 CIS 字體系統 */}
       <style>{`
@@ -509,7 +523,11 @@ export default function App() {
           ) : cleanStep === '2_stitch' ? (
             /* 階段二：空間拼湊與全案放樣圖 (點擊直接進入 MultiRoomStitcher 求解咬合) */
             <div className="survey-light-surface flex h-full w-full flex-col items-center justify-center p-5 text-center">
-              <div className="survey-card w-full max-w-xl rounded-3xl border p-6 shadow-xl sm:p-8">
+              <div className={`survey-card w-full rounded-3xl border p-4 shadow-xl sm:p-6 ${projectShell ? 'max-w-5xl h-[min(76vh,760px)]' : 'max-w-xl'}`}>
+                {projectShell ? <>
+                  <WholeHouseShellCanvas shell={projectShell} />
+                  <button onClick={() => { setCleanStep('3_layout'); setWorkflow('layout'); setShowWholeHouse(true); }} className="mt-3 w-full rounded-xl bg-[#B4503A] px-5 py-3 text-sm font-bold text-white">底圖正確，進入平面配置</button>
+                </> : <>
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[#3F5B63]/40 bg-[#3F5B63]/10 text-[#3F5B63]">
                   <Layers className="w-8 h-8" />
                 </div>
@@ -537,6 +555,7 @@ export default function App() {
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
+                </>}
               </div>
             </div>
           ) : (
@@ -558,8 +577,11 @@ export default function App() {
                   <button onClick={() => { setIsBatchSheetAssemblerOpen(true); setIsLayoutToolsOpen(false); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-bold text-[#F8F8F6] hover:bg-[#23301F]"><BookOpen className="h-4 w-4 text-[#E0A83C]" />CAD 交付中心</button>
                 </div>}
               </div>
+              {projectShell && activeMainTab !== '3d_simulation' && <div className="absolute right-3 top-3 z-20 flex rounded-xl border survey-border survey-card p-1 text-xs font-bold"><button onClick={() => setShowWholeHouse(true)} className={`rounded-lg px-3 py-2 ${showWholeHouse ? 'bg-[#B4503A] text-white' : 'survey-muted'}`}>整戶底圖</button><button onClick={() => setShowWholeHouse(false)} className={`rounded-lg px-3 py-2 ${!showWholeHouse ? 'bg-[#B4503A] text-white' : 'survey-muted'}`}>目前空間</button></div>}
               {activeMainTab === '3d_simulation' ? (
                 <ThreeDSceneView room={currentRoom} onNotify={showToast} onOpenCustomBlocks={() => setIsCustomBlockOpen(true)} />
+              ) : projectShell && showWholeHouse ? (
+                <div className="h-full w-full p-3 pt-16"><WholeHouseShellCanvas shell={projectShell} /></div>
               ) : (
                 <StakingCanvas2D room={currentRoom} activeViewMode={canvasViewMode} setActiveViewMode={setCanvasViewMode} onSelectVoiceMemo={setSelectedVoiceMemo} onUpdateRoom={handleUpdateRoom} onSwitchTo3D={() => setActiveMainTab('3d_simulation')} draggedBlock={draggedFurnitureBlock} onDropBlock={() => setDraggedFurnitureBlock(null)} onDragCancel={() => setDraggedFurnitureBlock(null)} onNotify={showToast} simpleMode />
               )}
@@ -1022,6 +1044,19 @@ export default function App() {
           setWorkflow('layout');
           setActiveMainTab('2d_staking');
           showToast(`已载入「${pName || '建商图面'}」${newRooms.length} 个空间，并进入 2D 平面配置。`);
+        }}
+        onImportShell={(shell, newRooms, pName) => {
+          const usableRooms = newRooms.length ? newRooms : rooms;
+          pushHistory(usableRooms);
+          setProjectShell(shell);
+          localStorage.setItem('minusplus_project_shell_v1', JSON.stringify(shell));
+          if (usableRooms[0]) setSelectedRoomId(usableRooms[0].id);
+          if (pName) { setProjectName(pName); localStorage.setItem('minusplus_project_name', pName); }
+          setShowWholeHouse(true);
+          setCleanStep('2_stitch');
+          setWorkflow('layout');
+          setActiveMainTab('2d_staking');
+          showToast(`已載入「${pName || '建商圖面'}」連續整戶底圖。`);
         }}
         onNotify={showToast}
       />

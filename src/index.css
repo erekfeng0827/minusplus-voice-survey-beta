@@ -50,6 +50,42 @@
   --survey-review-bg: #e4e8e0;
 }
 
+/* 全系統主題橋接：舊工作元件仍含硬編碼深色，於日間模式統一映射為 CIS 暖米灰。
+   入口、丈量、拼接、配置與各側欄因此不再出現淺色頁中嵌深黑面板。 */
+[data-theme="light"].survey-app [class*="bg-[#0a0f0b]"],
+[data-theme="light"].survey-app [class*="bg-[#0b100b]"],
+[data-theme="light"].survey-app [class*="bg-[#0d140e]"],
+[data-theme="light"].survey-app [class*="bg-[#10170f]"],
+[data-theme="light"].survey-app [class*="bg-[#121810]"],
+[data-theme="light"].survey-app [class*="bg-[#172019]"],
+[data-theme="light"].survey-app [class*="bg-[#182216]"],
+[data-theme="light"].survey-app [class*="bg-[#1A2417]"],
+[data-theme="light"].survey-app [class*="bg-[#23301F]"] {
+  background-color: var(--survey-surface) !important;
+  background-image: none !important;
+}
+[data-theme="light"].survey-app [class*="from-[#23301F]"],
+[data-theme="light"].survey-app [class*="to-[#1A2417]"] {
+  --tw-gradient-from: var(--survey-surface-raised) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: var(--survey-surface) var(--tw-gradient-to-position) !important;
+}
+[data-theme="light"].survey-app [class*="text-[#F8F8F6]"],
+[data-theme="light"].survey-app [class*="text-[#DDD7CE]"],
+[data-theme="light"].survey-app [class~="text-white"] {
+  color: var(--survey-text) !important;
+}
+[data-theme="light"].survey-app [class*="text-[#8E8E93]"] {
+  color: var(--survey-muted) !important;
+}
+[data-theme="light"].survey-app [class*="border-[#3F5B63]"] {
+  border-color: var(--survey-border) !important;
+}
+[data-theme="light"].survey-app .survey-card,
+[data-theme="light"].survey-app .survey-header,
+[data-theme="light"].survey-app .survey-sidebar {
+  box-shadow: 0 12px 34px rgba(53, 48, 38, 0.08);
+}
+
 :root[data-theme="dark"],
 [data-theme="dark"] {
   color-scheme: dark;

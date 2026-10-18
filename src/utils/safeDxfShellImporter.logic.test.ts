@@ -50,9 +50,15 @@ assert.equal(result.rooms[0].width, 450);
 assert.equal(result.rooms[0].length, 1400);
 assert.equal(result.rooms[0].doors.length, 0);
 assert.equal(result.rooms[0].beams.length, 0);
+assert.ok(result.shell, 'must preserve a continuous whole-house shell');
+assert.equal(result.shell?.width, 450);
+assert.equal(result.shell?.length, 1400);
+assert.equal(result.shell?.segments.length, 1);
+assert.equal(result.shell?.zones.length, 1);
+assert.deepEqual(result.shell?.segments[0].points[0], { x: 0, y: 1400 });
 
 const unitless = parseSafeDxfShells(dxf.replace('$INSUNITS\n70\n4', '$INSUNITS\n70\n0'), 'unitless.dxf');
 assert.equal(unitless.success, false);
-assert.match(unitless.error || '', /单位代码/);
+assert.match(unitless.error || '', /單位代碼/);
 
 console.log('Safe DXF shell importer: PASS');

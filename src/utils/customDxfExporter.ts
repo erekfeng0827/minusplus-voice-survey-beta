@@ -27,7 +27,7 @@ export function generateCustomDxfString(room: RoomData, layerConfigs: DxfLayerCo
   dxf += '0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLAYER\n70\n' + layerConfigs.length + '\n';
   layerConfigs.forEach((ly) => {
     const lName = ly.customName || ly.defaultName;
-    dxf += `0\nLAYER\n2\n${lName}\n70\n0\n62\n${ly.colorNumber}\n6\n${ly.lineType || 'CONTINUOUS'}\n`;
+    dxf += `0\nLAYER\n2\n${lName}\n70\n0\n62\n${ly.colorNumber}\n6\n${ly.lineType || 'CONTINUOUS'}\n370\n${ly.lineweight ?? -3}\n`;
   });
   dxf += '0\nENDTAB\n0\nENDSEC\n';
 

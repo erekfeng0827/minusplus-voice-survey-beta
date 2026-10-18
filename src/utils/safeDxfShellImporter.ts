@@ -1,4 +1,4 @@
-import { RoomData } from '../types';
+import { ProjectShell, RoomData } from '../types';
 import { tokenizeDxf } from './dxfParser';
 
 interface ParsedEntity {
@@ -12,6 +12,7 @@ export interface SafeDxfShellResult {
   success: boolean;
   error?: string;
   rooms: RoomData[];
+  shell?: ProjectShell;
   metadata: {
     unitCode: number;
     unitName: string;
@@ -85,7 +86,7 @@ export function parseSafeDxfShells(content: string, fileName: string): SafeDxfSh
   flush();
 
   const unit = UNIT_SCALE_TO_CM[unitCode];
-  if (!unit) return { success: false, error: `DXF 单位代码 ${unitCode || '未设定'} 无法安全换算；请在 CAD 设定为 mm、cm、m、inch 或 foot 后重存。`, rooms: [], metadata: { unitCode, unitName: 'unknown', scaleToCm: 0, entityCount: entities.length, closedShellCount: 0, layers: [...new Set(entities.map((item) => item.layer))] } };
+  if (!unit) return { success: false, error: `DXF 單位代碼 ${unitCode || '未設定'} 無法安全換算；請在 CAD 設定為 mm、cm、m、inch 或 foot 後重存。`, rooms: [], metadata: { unitCode, unitName: 'unknown', scaleToCm: 0, entityCount: entities.length, closedShellCount: 0, layers: [...new Set(entities.map((item) => item.layer))] } };
 
   const bounds = (entity: ParsedEntity) => {
     const xs = entity.points.map((point) => point.x * unit.scale);
@@ -105,5 +106,31 @@ export function parseSafeDxfShells(content: string, fileName: string): SafeDxfSh
     if (width >= 100 && length >= 100 && width <= 10000 && length <= 10000) rooms = [makeRoom('DXF 全图边界（待分房）', width, length, fileName, 'MULTI_LAYER', 0)];
   }
 
-  return { success: rooms.length > 0, error: rooms.length ? undefined : '没有找到可验证的闭合空间或有效图面边界。', rooms, metadata: { unitCode, unitName: unit.name, scaleToCm: unit.scale, entityCount: entities.length, closedShellCount: uniqueClosed.length, layers: [...new Set(entities.map((item) => item.layer))] } };
+  const allScaled = entities.flatMap((entity) => entity.points.map((point) => ({ x: point.x * unit.scale, y: point.y * unit.scale })));
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const point of allScaled) {
+    if (point.x < minX) minX = point.x;
+    if (point.y < minY) minY = point.y;
+    if (point.x > maxX) maxX = point.x;
+    if (point.y > maxY) maxY = point.y;
+  }
+  if (allScaled.length === 0) minX = minY = maxX = maxY = 0;
+  const normalize = (point: { x: number; y: number }) => ({ x: point.x * unit.scale - minX, y: maxY - point.y * unit.scale });
+  const shell: ProjectShell | undefined = allScaled.length ? {
+    id: `shell-${Date.now()}`,
+    sourceFileName: fileName,
+    sourceFormat: 'DXF',
+    unitName: unit.name,
+    scaleToCm: unit.scale,
+    width: maxX - minX,
+    length: maxY - minY,
+    segments: entities.map((entity, index) => ({ id: `shell-seg-${index + 1}`, layer: entity.layer, entityType: entity.type, points: entity.points.map(normalize), closed: entity.closed })),
+    zones: uniqueClosed.slice(0, 50).map((item, index) => ({ id: `zone-${index + 1}`, name: `空間 ${index + 1}`, polygon: item.entity.points.map(normalize), sourceLayer: item.entity.layer })),
+    importedAt: new Date().toISOString(),
+  } : undefined;
+
+  return { success: Boolean(shell), error: shell ? undefined : '沒有找到可回讀的向量圖元。', rooms, shell, metadata: { unitCode, unitName: unit.name, scaleToCm: unit.scale, entityCount: entities.length, closedShellCount: uniqueClosed.length, layers: [...new Set(entities.map((item) => item.layer))] } };
 }
