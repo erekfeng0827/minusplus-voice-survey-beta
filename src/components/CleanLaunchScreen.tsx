@@ -1,15 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ArrowRight, FolderOpen, LayoutTemplate, Plus } from 'lucide-react';
 
 interface Props {
   hasSavedProject: boolean;
   savedProjectName: string;
   onStartBlank: () => void;
+  onStartTownhouse: (stairDirection: 'longitudinal' | 'transverse') => void;
   onUseExample: () => void;
   onContinue: () => void;
 }
 
-export const CleanLaunchScreen: React.FC<Props> = ({ hasSavedProject, savedProjectName, onStartBlank, onUseExample, onContinue }) => (
+export const CleanLaunchScreen: React.FC<Props> = ({ hasSavedProject, savedProjectName, onStartBlank, onStartTownhouse, onUseExample, onContinue }) => {
+  const [showBlankChoices, setShowBlankChoices] = useState(false);
+  return (
   <main className="min-h-[100svh] overflow-y-auto bg-[#F8F8F6] text-[#23301F]">
     <div className="mx-auto flex min-h-[100svh] w-full max-w-6xl flex-col px-6 pb-10 pt-[max(32px,env(safe-area-inset-top))] sm:px-10 lg:px-16">
       <header className="flex items-center justify-between border-b border-[#DDD7CE] pb-6">
@@ -31,7 +34,7 @@ export const CleanLaunchScreen: React.FC<Props> = ({ hasSavedProject, savedProje
         </div>
 
         <div className="mt-10 grid gap-4 md:grid-cols-3">
-          <button type="button" onClick={onStartBlank} className="group min-h-44 rounded-3xl bg-[#23301F] p-6 text-left text-[#F8F8F6] shadow-[0_18px_45px_rgba(35,48,31,0.18)] transition hover:-translate-y-1 active:translate-y-0">
+          <button type="button" onClick={() => setShowBlankChoices((value) => !value)} className="group min-h-44 rounded-3xl bg-[#23301F] p-6 text-left text-[#F8F8F6] shadow-[0_18px_45px_rgba(35,48,31,0.18)] transition hover:-translate-y-1 active:translate-y-0">
             <Plus className="h-7 w-7" />
             <strong className="mt-8 block font-['Noto_Serif_TC'] text-2xl">开始空白案</strong>
             <span className="mt-2 block text-sm text-[#F8F8F6]/75">从玄关起点开始口说丈量</span>
@@ -49,6 +52,11 @@ export const CleanLaunchScreen: React.FC<Props> = ({ hasSavedProject, savedProje
             <span className="mt-2 flex items-center justify-between gap-3 text-sm text-[#23301F]/60"><span className="truncate">{hasSavedProject ? savedProjectName : '尚无储存中的案场'}</span><ArrowRight className="h-4 w-4 shrink-0" /></span>
           </button>
         </div>
+        {showBlankChoices && <div className="mt-4 grid gap-2 rounded-2xl border border-[#DDD7CE] bg-[#EEEAE3] p-3 sm:grid-cols-3">
+          <button type="button" onClick={onStartBlank} className="rounded-xl bg-white px-4 py-3 text-left text-sm font-bold text-[#23301F] hover:ring-2 hover:ring-[#E0A83C]">一般矩形空白案<span className="mt-1 block text-xs font-normal text-[#23301F]/60">无预设物件</span></button>
+          <button type="button" onClick={() => onStartTownhouse('longitudinal')} className="rounded-xl bg-white px-4 py-3 text-left text-sm font-bold text-[#23301F] hover:ring-2 hover:ring-[#E0A83C]">透天 · 中段直向梯<span className="mt-1 block text-xs font-normal text-[#23301F]/60">窄面宽、长进深</span></button>
+          <button type="button" onClick={() => onStartTownhouse('transverse')} className="rounded-xl bg-white px-4 py-3 text-left text-sm font-bold text-[#23301F] hover:ring-2 hover:ring-[#E0A83C]">透天 · 中段横向梯<span className="mt-1 block text-xs font-normal text-[#23301F]/60">楼梯横跨面宽</span></button>
+        </div>}
       </section>
 
       <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#DDD7CE] pt-5 text-xs text-[#23301F]/45">
@@ -56,4 +64,5 @@ export const CleanLaunchScreen: React.FC<Props> = ({ hasSavedProject, savedProje
       </footer>
     </div>
   </main>
-);
+  );
+};

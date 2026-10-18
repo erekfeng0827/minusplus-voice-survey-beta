@@ -187,7 +187,7 @@ export const PerimeterSurveyGuide: React.FC<Props> = ({ room, onUpdateRoom, onNo
   };
 
   return (
-    <section className="overflow-hidden rounded-3xl border border-amber-500/40 bg-[#10170f] shadow-2xl shadow-black/30">
+    <section className="survey-guided-panel overflow-hidden rounded-3xl border border-amber-500/40 bg-[#10170f] shadow-xl shadow-black/10">
       <div className="grid gap-0 lg:grid-cols-[240px_minmax(0,1fr)]">
         <div className="border-b border-amber-500/20 bg-[#182216] p-4 lg:border-b-0 lg:border-r">
           <div className="mb-4 flex items-center gap-2 text-amber-300"><Compass className="h-5 w-5" /><strong>玄關起點丈量</strong></div>

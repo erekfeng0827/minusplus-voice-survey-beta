@@ -68,6 +68,7 @@ import { FloorplanPdfImportModal } from './components/FloorplanPdfImportModal';
 import { CleanLaunchScreen } from './components/CleanLaunchScreen';
 import { useAuth } from './context/AuthContext';
 import { downloadDxfFile } from './utils/dxfExporter';
+import { createCleanRoomFromTemplate, ROOM_TEMPLATES } from './data/roomTemplates';
 
 import {
   Mic, Box, FileText, Download, Plus, Layers, Sparkles, 
@@ -146,6 +147,7 @@ export default function App() {
   const [isBottomOpen, setIsBottomOpen] = useState<boolean>(false);
   const [isLeftOpen, setIsLeftOpen] = useState<boolean>(false);
   const [isRightOpen, setIsRightOpen] = useState<boolean>(false);
+  const [isLayoutToolsOpen, setIsLayoutToolsOpen] = useState<boolean>(false);
 
   const [isVoicePanelOpen, setIsVoicePanelOpen] = useState<boolean>(false);
 
@@ -396,12 +398,24 @@ export default function App() {
     setShowLaunchScreen(false);
   };
 
+  const startTownhouseProject = (stairDirection: 'longitudinal' | 'transverse') => {
+    const templateId = stairDirection === 'longitudinal' ? 'tpl-townhouse-longitudinal' : 'tpl-townhouse-transverse';
+    const template = ROOM_TEMPLATES.find((item) => item.id === templateId);
+    if (!template) return;
+    const room = createCleanRoomFromTemplate(template, stairDirection === 'longitudinal' ? '透天一樓空模（直向梯）' : '透天一樓空模（橫向梯）');
+    handleStartFreshProject([room], stairDirection === 'longitudinal' ? '透天窄面寬直向梯案' : '透天窄面寬橫向梯案');
+    setCleanStep('1_survey');
+    setWorkflow('measure');
+    setShowLaunchScreen(false);
+  };
+
   if (showLaunchScreen) {
     return (
       <CleanLaunchScreen
         hasSavedProject={Boolean(localStorage.getItem('minusplus_active_rooms'))}
         savedProjectName={projectName}
         onStartBlank={startBlankProject}
+        onStartTownhouse={startTownhouseProject}
         onUseExample={useCompleteExample}
         onContinue={() => setShowLaunchScreen(false)}
       />
@@ -518,26 +532,24 @@ export default function App() {
           ) : (
             /* 階段三：平面配置、傢俱深化與圖面繪製 */
             <div className="w-full h-full relative">
-              <div className="absolute left-3 top-3 z-20 flex max-w-[calc(100%-1.5rem)] flex-wrap gap-2">
+              <div className="absolute left-3 top-3 z-20 flex max-w-[calc(100%-1.5rem)] items-start gap-2">
                 <button
-                  onClick={() => setIsAutoSpaceLayoutOpen(true)}
-                  className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg transition hover:bg-emerald-500 active:scale-95"
+                  onClick={() => setIsLayoutToolsOpen((value) => !value)}
+                  className="flex items-center gap-2 rounded-xl bg-[#23301F] px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-[#3F5B63] active:scale-95"
                 >
-                  <LayoutGrid className="h-4 w-4" />
-                  產生配置候選
+                  <Menu className="h-4 w-4" />
+                  配置工具
                 </button>
-                <button
-                  onClick={() => setIsPersonalBlockLibraryOpen(true)}
-                  className="flex items-center gap-2 rounded-xl border border-[#3F5B63]/50 bg-[#121810]/90 px-4 py-2.5 text-xs font-bold text-[#F8F8F6] shadow-lg backdrop-blur-sm transition hover:bg-[#23301F] active:scale-95"
-                >
-                  <FolderPlus className="h-4 w-4" />
-                  家具／櫃體圖塊
-                </button>
+                {isLayoutToolsOpen && <div className="w-56 rounded-2xl border border-[#3F5B63]/50 bg-[#121810]/95 p-2 shadow-2xl backdrop-blur-xl">
+                  <button onClick={() => { setIsAutoSpaceLayoutOpen(true); setIsLayoutToolsOpen(false); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-bold text-[#F8F8F6] hover:bg-[#23301F]"><LayoutGrid className="h-4 w-4 text-[#E0A83C]" />自動產生配置</button>
+                  <button onClick={() => { setIsPersonalBlockLibraryOpen(true); setIsLayoutToolsOpen(false); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-bold text-[#F8F8F6] hover:bg-[#23301F]"><FolderPlus className="h-4 w-4 text-[#D99AA2]" />家具／櫃體圖塊</button>
+                  <button onClick={() => { downloadDxfFile(currentRoom, '室內設計_放樣圖'); setIsLayoutToolsOpen(false); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-bold text-[#F8F8F6] hover:bg-[#23301F]"><Download className="h-4 w-4 text-[#3F5B63]" />匯出 DXF</button>
+                </div>}
               </div>
               {activeMainTab === '3d_simulation' ? (
                 <ThreeDSceneView room={currentRoom} onNotify={showToast} onOpenCustomBlocks={() => setIsCustomBlockOpen(true)} />
               ) : (
-                <StakingCanvas2D room={currentRoom} activeViewMode={canvasViewMode} setActiveViewMode={setCanvasViewMode} onSelectVoiceMemo={setSelectedVoiceMemo} onUpdateRoom={handleUpdateRoom} onSwitchTo3D={() => setActiveMainTab('3d_simulation')} draggedBlock={draggedFurnitureBlock} onDropBlock={() => setDraggedFurnitureBlock(null)} onDragCancel={() => setDraggedFurnitureBlock(null)} onNotify={showToast} />
+                <StakingCanvas2D room={currentRoom} activeViewMode={canvasViewMode} setActiveViewMode={setCanvasViewMode} onSelectVoiceMemo={setSelectedVoiceMemo} onUpdateRoom={handleUpdateRoom} onSwitchTo3D={() => setActiveMainTab('3d_simulation')} draggedBlock={draggedFurnitureBlock} onDropBlock={() => setDraggedFurnitureBlock(null)} onDragCancel={() => setDraggedFurnitureBlock(null)} onNotify={showToast} simpleMode />
               )}
             </div>
           )}
@@ -551,7 +563,7 @@ export default function App() {
       {/* ⬆️ 頂部拉簾觸發器 (Top Handle) */}
       <button 
         onClick={() => setIsTopOpen(!isTopOpen)}
-        className={`absolute top-0 left-1/2 transform -translate-x-1/2 z-40 bg-[#23301F]/90 backdrop-blur-md border border-[#3F5B63]/50 border-t-0 px-6 py-1.5 rounded-b-2xl shadow-lg flex items-center gap-2 text-[#E0A83C] hover:text-[#F8F8F6] transition-all duration-300 ${isTopOpen ? 'translate-y-[-100%]' : 'translate-y-0'}`}
+        className="hidden"
       >
         <span style={{ fontFamily: 'var(--mp-font-ui)' }} className="text-[10px] tracking-widest uppercase font-bold">Project & Workflow</span>
         <ChevronDown className="w-3.5 h-3.5" />
@@ -560,7 +572,7 @@ export default function App() {
       {/* ⬇️ 底部中控觸發器 (Bottom Handle) */}
       <button 
         onClick={() => setIsBottomOpen(!isBottomOpen)}
-        className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 z-40 bg-[#B4503A]/90 backdrop-blur-md border border-[#B4503A]/50 border-b-0 px-8 py-2 rounded-t-2xl shadow-[0_-4px_20px_rgba(180,80,58,0.3)] flex items-center gap-2 text-[#F8F8F6] hover:bg-[#9e4330] transition-all duration-300 ${isBottomOpen ? 'translate-y-[100%]' : 'translate-y-0'}`}
+        className="hidden"
       >
         <Mic className="w-4 h-4 animate-pulse" />
         <span style={{ fontFamily: 'var(--mp-font-cn-display)' }} className="text-sm font-bold tracking-widest">現場輸入與語音</span>
@@ -570,7 +582,7 @@ export default function App() {
       {/* ⬅️ 左側抽屜觸發器 (Left Handle) */}
       <button 
         onClick={() => setIsLeftOpen(!isLeftOpen)}
-        className={`absolute left-0 top-1/2 transform -translate-y-1/2 z-40 bg-[#23301F]/90 backdrop-blur-md border border-[#3F5B63]/50 border-l-0 px-1.5 py-8 rounded-r-2xl shadow-lg flex flex-col items-center gap-2 text-[#E0A83C] hover:text-[#F8F8F6] transition-all duration-300 ${isLeftOpen ? 'translate-x-[-100%]' : 'translate-x-0'}`}
+        className="hidden"
       >
         <Map className="w-4 h-4" />
         <ChevronRight className="w-3.5 h-3.5" />
@@ -579,7 +591,7 @@ export default function App() {
       {/* ➡️ 右側工具塢觸發器 (Right Handle) */}
       <button 
         onClick={() => setIsRightOpen(!isRightOpen)}
-        className={`absolute right-0 top-1/2 transform -translate-y-1/2 z-40 bg-[#23301F]/90 backdrop-blur-md border border-[#3F5B63]/50 border-r-0 px-1.5 py-8 rounded-l-2xl shadow-lg flex flex-col items-center gap-2 text-[#E0A83C] hover:text-[#F8F8F6] transition-all duration-300 ${isRightOpen ? 'translate-x-[100%]' : 'translate-x-0'}`}
+        className={`${cleanStep === '3_layout' ? 'flex' : 'hidden'} absolute right-0 top-1/2 -translate-y-1/2 z-40 bg-[#23301F]/90 backdrop-blur-md border border-[#3F5B63]/50 border-r-0 px-2 py-5 rounded-l-2xl shadow-lg flex-col items-center gap-2 text-[#E0A83C] hover:text-[#F8F8F6] transition-all duration-300 ${isRightOpen ? 'translate-x-[100%]' : 'translate-x-0'}`}
       >
         <Wrench className="w-4 h-4" />
         <ChevronLeft className="w-3.5 h-3.5" />
@@ -831,7 +843,7 @@ export default function App() {
       </div>
 
       {/* 🛠️ 常駐緊急快取清理/除錯按鈕 (Bottom-Left Floating Reset/Debug Trigger) */}
-      <div className="fixed bottom-3 left-3 z-30 hidden items-center gap-1.5 bg-[#121810]/80 backdrop-blur-md p-1.5 rounded-xl border border-[#3F5B63]/40 shadow-lg lg:flex">
+      <div className="hidden">
         <button
           onClick={handleResetMinusPlusStorage}
           className="px-2.5 py-1.5 rounded-lg bg-red-950/80 hover:bg-red-900 border border-red-500/50 text-red-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"

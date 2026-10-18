@@ -40,14 +40,14 @@
 :root[data-theme="light"],
 [data-theme="light"] {
   color-scheme: light;
-  --survey-app-bg: #f5f7f4;
-  --survey-surface: #ffffff;
-  --survey-surface-raised: #eef3ec;
-  --survey-input-bg: #ffffff;
-  --survey-text: #172019;
-  --survey-muted: #5f6b62;
-  --survey-border: rgba(54, 83, 65, 0.24);
-  --survey-review-bg: #eefbf4;
+  --survey-app-bg: #e9e6de;
+  --survey-surface: #f4f1ea;
+  --survey-surface-raised: #ece7de;
+  --survey-input-bg: #faf8f3;
+  --survey-text: #23301f;
+  --survey-muted: #6d7168;
+  --survey-border: rgba(63, 91, 99, 0.22);
+  --survey-review-bg: #e4e8e0;
 }
 
 :root[data-theme="dark"],
@@ -72,6 +72,29 @@ body {
 .survey-text { color: var(--survey-text); }
 .survey-muted { color: var(--survey-muted); }
 .survey-border { border-color: var(--survey-border); }
+
+/* 日間丈量介面使用一致的暖米灰材質；避免白底和深黑卡片交錯刺眼。 */
+[data-theme="light"] .survey-light-surface [class*="bg-[#121810]"],
+[data-theme="light"] .survey-light-surface [class*="bg-[#10170f]"],
+[data-theme="light"] .survey-light-surface [class*="bg-[#0d140e]"],
+[data-theme="light"] .survey-light-surface [class*="bg-[#0b100b]"],
+[data-theme="light"] .survey-light-surface [class*="bg-[#182216]"] {
+  background-color: var(--survey-surface-raised) !important;
+}
+[data-theme="light"] .survey-light-surface [class*="text-[#F8F8F6]"],
+[data-theme="light"] .survey-light-surface [class*="text-[#DDD7CE]"],
+[data-theme="light"] .survey-light-surface [class~="text-white"] {
+  color: var(--survey-text) !important;
+}
+[data-theme="light"] .survey-light-surface textarea,
+[data-theme="light"] .survey-light-surface input,
+[data-theme="light"] .survey-light-surface select {
+  color: var(--survey-text);
+}
+[data-theme="light"] .survey-light-surface textarea::placeholder,
+[data-theme="light"] .survey-light-surface input::placeholder {
+  color: #77766f;
+}
 
 @media (max-width: 390px) {
   button, input, select { max-width: 100%; }

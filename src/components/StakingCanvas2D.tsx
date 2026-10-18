@@ -85,6 +85,7 @@ interface StakingCanvas2DProps {
   onDropBlock?: (block: PersonalDetailBlockItem, x: number, y: number, snapTarget: string) => void;
   onDragCancel?: () => void;
   onNotify?: (msg: string) => void;
+  simpleMode?: boolean;
 }
 
 export const StakingCanvas2D: React.FC<StakingCanvas2DProps> = ({
@@ -98,6 +99,7 @@ export const StakingCanvas2D: React.FC<StakingCanvas2DProps> = ({
   onDropBlock,
   onDragCancel,
   onNotify,
+  simpleMode = false,
 }) => {
   const [zoom, setZoom] = useState<number>(1);
   const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null);
@@ -134,11 +136,11 @@ export const StakingCanvas2D: React.FC<StakingCanvas2DProps> = ({
   const [elevationTargetWall, setElevationTargetWall] = useState<WallKey | 'all'>('all');
 
   // AI 智能識別並繪製虛擬標註點狀態
-  const [showVirtualAnnotations, setShowVirtualAnnotations] = useState<boolean>(true);
+  const [showVirtualAnnotations, setShowVirtualAnnotations] = useState<boolean>(!simpleMode);
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
 
   // 🌟 星玥灣幾何契約：自動尺寸鏈 (牆面與梁間距自動計算與 5 倍數紅框檢核)
-  const [showAutoDimensionChain, setShowAutoDimensionChain] = useState<boolean>(true);
+  const [showAutoDimensionChain, setShowAutoDimensionChain] = useState<boolean>(!simpleMode);
   const [showDimensionChainModal, setShowDimensionChainModal] = useState<boolean>(false);
   const [selectedChainSegmentId, setSelectedChainSegmentId] = useState<string | null>(null);
 
@@ -1136,7 +1138,7 @@ export const StakingCanvas2D: React.FC<StakingCanvas2DProps> = ({
   return (
     <div className="flex flex-col h-full bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
       {/* Top Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-slate-950/80 border-b border-slate-800 backdrop-blur-sm">
+      {!simpleMode && <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-slate-950/80 border-b border-slate-800 backdrop-blur-sm">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800 text-xs font-medium text-slate-300">
             <Ruler className="w-3.5 h-3.5 text-blue-400" />
@@ -1438,7 +1440,7 @@ export const StakingCanvas2D: React.FC<StakingCanvas2DProps> = ({
             匯出 AutoCAD .DXF
           </button>
         </div>
-      </div>
+      </div>}
 
       {/* SVG Canvas Stage */}
       <div className="relative flex-1 overflow-auto flex items-center justify-center p-4 bg-[#0B1120]">

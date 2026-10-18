@@ -1,4 +1,4 @@
-import { RoomData, Door, WindowOpening, Beam } from '../types';
+import { RoomData, Door, WindowOpening, Beam, PlacedBlockItem } from '../types';
 
 export interface RoomTemplate {
   id: string;
@@ -15,6 +15,7 @@ export interface RoomTemplate {
   doors: Door[];
   windows: WindowOpening[];
   beams: Beam[];
+  placedBlocks?: PlacedBlockItem[];
   badge: string;
   iconType: 'blank' | 'living' | 'bedroom' | 'study' | 'studio' | 'kitchen' | 'bath';
 }
@@ -59,6 +60,40 @@ export const ROOM_TEMPLATES: RoomTemplate[] = [
     beams: [],
     badge: '客餐廳標準款',
     iconType: 'living',
+  },
+  {
+    id: 'tpl-townhouse-longitudinal',
+    title: '透天窄面寬 · 中段直向梯',
+    category: 'residential',
+    description: '面寬 450cm、進深 1400cm 的長型透天空模；只保留入口與建築中段直向樓梯，其他格局完全留白供現場丈量。',
+    approxAreaPing: 19.1,
+    width: 450,
+    length: 1400,
+    height: 300,
+    beamHeight: 280,
+    ceilingDrop: 245,
+    bathKitchenDrop: 225,
+    doors: [{ id: 'd-townhouse-long', name: '透天玄關大門', type: 'entryway', width: 120, height: 225, wall: 'bottom', offset: 165 }],
+    windows: [], beams: [],
+    placedBlocks: [{ id: 'tpl-stair-long', blockId: 'stair-straight-parametric-v1', name: '中段直向梯', category: 'detail_joint', subCategory: 'stair:straight', x: 175, y: 520, widthCm: 100, depthCm: 360, heightCm: 300, cadLayer: 'A-STAIR', colorIndex: 3, rotationDeg: 0, snappedTo: '建築中段軸線', tags: ['stairType:straight', 'verification:APP_PARAMETRIC_ONLY'] }],
+    badge: '透天空模 · 直向梯', iconType: 'blank',
+  },
+  {
+    id: 'tpl-townhouse-transverse',
+    title: '透天窄面寬 · 中段橫向梯',
+    category: 'residential',
+    description: '面寬 450cm、進深 1400cm 的長型透天空模；只保留入口與建築中段橫向樓梯，適合樓梯跨越面寬配置。',
+    approxAreaPing: 19.1,
+    width: 450,
+    length: 1400,
+    height: 300,
+    beamHeight: 280,
+    ceilingDrop: 245,
+    bathKitchenDrop: 225,
+    doors: [{ id: 'd-townhouse-cross', name: '透天玄關大門', type: 'entryway', width: 120, height: 225, wall: 'bottom', offset: 165 }],
+    windows: [], beams: [],
+    placedBlocks: [{ id: 'tpl-stair-cross', blockId: 'stair-straight-parametric-v1', name: '中段橫向梯', category: 'detail_joint', subCategory: 'stair:straight', x: 45, y: 650, widthCm: 360, depthCm: 100, heightCm: 300, cadLayer: 'A-STAIR', colorIndex: 3, rotationDeg: 90, snappedTo: '建築中段橫軸', tags: ['stairType:straight', 'verification:APP_PARAMETRIC_ONLY'] }],
+    badge: '透天空模 · 橫向梯', iconType: 'blank',
   },
   {
     id: 'tpl-master-bed',
@@ -206,6 +241,7 @@ export function createCleanRoomFromTemplate(
     electricalPoints: [], // 永遠為空！
     lightingPoints: [],
     virtualAnnotations: [],
+    placedBlocks: (template.placedBlocks || []).map((item) => ({ ...item, id: `${item.id}-${ts}`, placedAt: new Date().toISOString() })),
     lastUpdated: new Date().toISOString().replace('T', ' ').slice(0, 16),
     notes: [`純淨畫布建立於 ${new Date().toLocaleDateString()}`],
   };

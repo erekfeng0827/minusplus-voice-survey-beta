@@ -237,7 +237,7 @@ export const CleanMeasureWorkspace: React.FC<CleanMeasureWorkspaceProps> = ({
   const floorAreaPing = (((currentRoom.width * currentRoom.length) / 10000) * 0.3025).toFixed(2);
 
   return (
-    <div className="survey-app flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto md:flex-row md:overflow-hidden">
+    <div className="survey-app survey-light-surface flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto md:flex-row md:overflow-hidden">
       {/* ⬅️ 左側：空間清單與導航 (乾淨俐落) */}
       <aside className="survey-sidebar flex w-full min-w-0 shrink-0 flex-col border-r md:w-80">
         {/* 頂部操作列 */}
@@ -328,15 +328,6 @@ export const CleanMeasureWorkspace: React.FC<CleanMeasureWorkspaceProps> = ({
 
       {/* ➡️ 右側核心主工作區：結構化、無負擔的純淨丈量空間 */}
       <main className="flex min-w-0 flex-1 flex-col overflow-y-auto p-3 sm:p-4 md:p-6 space-y-4">
-        <div className="survey-card rounded-xl border p-3" aria-label="現場操作流程">
-          <div className="grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-5">
-            <div className="rounded-lg bg-emerald-500/10 px-2.5 py-2 text-emerald-500"><strong className="block">1 新案</strong><span>已進入案場</span></div>
-            <button type="button" onClick={onOpenPdfImport} disabled={!onOpenPdfImport} className="rounded-lg border survey-border px-2.5 py-2 text-left survey-muted disabled:opacity-50"><strong className="block survey-text">2 空模／圖面</strong><span>選用：上傳或略過</span></button>
-            <div className="rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-2.5 py-2 text-emerald-500"><strong className="block">3 口述丈量</strong><span>目前步驟</span></div>
-            <div className="rounded-lg border survey-border px-2.5 py-2 survey-muted"><strong className="block survey-text">4 核對確認</strong><span>確認後才寫入</span></div>
-            <button type="button" onClick={onProceedToStitch} className="col-span-2 rounded-lg border survey-border px-2.5 py-2 text-left survey-muted sm:col-span-1"><strong className="block survey-text">5 配置結果</strong><span>完成丈量後進入</span></button>
-          </div>
-        </div>
         {/* 🌟 1. 當前空間標題卡片與頁籤導航列 (明確直觀，不雜亂) */}
         <div className="bg-[#121810] border border-[#3F5B63]/50 rounded-2xl p-4 shadow-xl space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#3F5B63]/30 pb-3">
