@@ -1230,8 +1230,6 @@ export const PersonalDetailBlockLibraryModal: React.FC<PersonalDetailBlockLibrar
   const [hatchFileName, setHatchFileName] = useState<string>('');
   const hatchFileInputRef = useRef<HTMLInputElement>(null);
 
-  if (!isOpen) return null;
-
   // -------------------------------------------------------------
   // USER REQUESTED: 標籤清單計算與過濾 (Tags Aggregation & Filtering)
   // -------------------------------------------------------------
@@ -1279,6 +1277,10 @@ export const PersonalDetailBlockLibraryModal: React.FC<PersonalDetailBlockLibrar
   }, [blocks, activeCategory, activeTag, searchQuery]);
 
   const activeBlock = blocks.find((b) => b.id === selectedBlockId) || filteredBlocks[0] || blocks[0];
+
+  // Hooks must run in the same order whether the palette is open or closed.
+  // Returning before the memo hooks caused React #310 when opening the library.
+  if (!isOpen) return null;
 
   // -------------------------------------------------------------
   // 標籤操作函式 (Tag Management Handlers)
