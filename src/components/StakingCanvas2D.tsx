@@ -54,6 +54,7 @@ import {
   updateWallConfig,
   getColumnCoordinates,
 } from '../utils/wallUtils';
+import { removeLinkedFurniture, syncFurnitureFromPlacedBlocks } from '../utils/placedBlockFurnitureSync';
 
 export interface ClearanceViolation {
   id: string;
@@ -235,6 +236,7 @@ export const StakingCanvas2D: React.FC<StakingCanvas2DProps> = ({
   } | null>(null);
 
   const [selectedPlacedBlockId, setSelectedPlacedBlockId] = useState<string | null>(null);
+  const selectedPlacedBlock = (room.placedBlocks || []).find((block) => block.id === selectedPlacedBlockId) || null;
 
   const computeSnap = (
     rx: number,
@@ -416,8 +418,11 @@ export const StakingCanvas2D: React.FC<StakingCanvas2DProps> = ({
     const bd = blockToPlace.depthCm || 60;
     const { snappedX, snappedY, snapLabel } = computeSnap(rx, ry, bw, bd, blockToPlace);
 
+    const placedId = `placed-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const furnitureId = blockToPlace.category === 'furniture' ? `f-${placedId}` : undefined;
     const newPlaced: PlacedBlockItem = {
-      id: `placed-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      id: placedId,
+      furnitureId,
       blockId: blockToPlace.id,
       name: blockToPlace.name,
       category: blockToPlace.category,
@@ -451,7 +456,7 @@ export const StakingCanvas2D: React.FC<StakingCanvas2DProps> = ({
         : 'cabinet';
 
       updatedFurniture.push({
-        id: `f-${Date.now()}`,
+        id: furnitureId!,
         name: blockToPlace.name,
         category: furnCategory,
         x: snappedX,
@@ -496,7 +501,7 @@ export const StakingCanvas2D: React.FC<StakingCanvas2DProps> = ({
       }
       return pb;
     });
-    onUpdateRoom({ ...room, placedBlocks: updated });
+    onUpdateRoom({ ...room, placedBlocks: updated, furniture: syncFurnitureFromPlacedBlocks(room.furniture, updated) });
     setBeamToast('已旋轉圖塊 90 度！');
     setTimeout(() => setBeamToast(null), 2500);
   };
@@ -515,7 +520,7 @@ export const StakingCanvas2D: React.FC<StakingCanvas2DProps> = ({
       }
       return pb;
     });
-    onUpdateRoom({ ...room, placedBlocks: updated });
+    onUpdateRoom({ ...room, placedBlocks: updated, furniture: syncFurnitureFromPlacedBlocks(room.furniture, updated) });
     setBeamToast('已將圖塊位置對齊至 5 倍數工程基準模數！');
     setTimeout(() => setBeamToast(null), 2500);
   };
@@ -523,14 +528,25 @@ export const StakingCanvas2D: React.FC<StakingCanvas2DProps> = ({
   const handleDeletePlacedBlock = (blockId: string) => {
     const target = (room.placedBlocks || []).find((b) => b.id === blockId);
     const updated = (room.placedBlocks || []).filter((b) => b.id !== blockId);
-    let updatedFurniture = room.furniture || [];
-    if (target) {
-      updatedFurniture = updatedFurniture.filter((f) => f.name !== target.name);
-    }
+    const updatedFurniture = removeLinkedFurniture(room.furniture, target);
     onUpdateRoom({ ...room, placedBlocks: updated, furniture: updatedFurniture });
     setSelectedPlacedBlockId(null);
     setBeamToast('已自畫布移除該圖塊！');
     setTimeout(() => setBeamToast(null), 2500);
+  };
+
+  const handleEditPlacedBlock = (field: 'x' | 'y' | 'widthCm' | 'depthCm', rawValue: number) => {
+    if (!selectedPlacedBlock || !Number.isFinite(rawValue)) return;
+    const updated = (room.placedBlocks || []).map((block) => {
+      if (block.id !== selectedPlacedBlock.id) return block;
+      const next = { ...block, [field]: Math.max(0, Math.round(rawValue)) };
+      next.widthCm = Math.max(5, Math.min(room.width, next.widthCm));
+      next.depthCm = Math.max(5, Math.min(room.length, next.depthCm));
+      next.x = Math.max(0, Math.min(room.width - next.widthCm, next.x));
+      next.y = Math.max(0, Math.min(room.length - next.depthCm, next.y));
+      return next;
+    });
+    onUpdateRoom({ ...room, placedBlocks: updated, furniture: syncFurnitureFromPlacedBlocks(room.furniture, updated) });
   };
 
   const renderGhostVectorGraphic = (
@@ -3175,6 +3191,25 @@ export const StakingCanvas2D: React.FC<StakingCanvas2DProps> = ({
             </g>
           </g>
         </svg>
+
+        {selectedPlacedBlock && (
+          <div className="absolute bottom-4 right-4 z-30 w-[min(92vw,320px)] rounded-2xl border border-[#3F5B63]/50 bg-[#121810]/95 p-3 text-[#F8F8F6] shadow-2xl backdrop-blur-xl">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="min-w-0"><div className="truncate text-sm font-bold">{selectedPlacedBlock.name}</div><div className="text-[10px] text-[#9ca398]">直接修改位置與尺寸（cm）</div></div>
+              <button onClick={() => setSelectedPlacedBlockId(null)} className="rounded-lg p-1 text-[#9ca398] hover:bg-white/10 hover:text-white" aria-label="關閉編輯"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {([
+                ['x', 'X', selectedPlacedBlock.x],
+                ['y', 'Y', selectedPlacedBlock.y],
+                ['widthCm', '寬', selectedPlacedBlock.widthCm],
+                ['depthCm', '深', selectedPlacedBlock.depthCm],
+              ] as const).map(([field, label, value]) => (
+                <label key={field} className="text-[10px] text-[#b9beb5]">{label}<input type="number" min="0" step="5" value={value} onChange={(event) => handleEditPlacedBlock(field, Number(event.target.value))} className="mt-1 w-full rounded-lg border border-[#3F5B63]/50 bg-[#0a0f0b] px-2 py-2 text-center font-mono text-xs text-white outline-none focus:border-[#E0A83C]" /></label>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Floating Auto Clearance Inspector Panel (自動檢測與法規標準診斷控制台) */}
         {showInspectorPanel && (

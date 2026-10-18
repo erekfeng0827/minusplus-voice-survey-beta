@@ -259,7 +259,7 @@ export default function App() {
     const y = Math.max(0, Math.round((currentRoom.length - block.depthCm) / 10) * 5);
     const placedId = `placed-${Date.now()}`;
     const placed: PlacedBlockItem = {
-      id: placedId, blockId: block.id, name: block.name, category: block.category,
+      id: placedId, furnitureId: block.category === 'furniture' ? `f-${placedId}` : undefined, blockId: block.id, name: block.name, category: block.category,
       subCategory: block.subCategory, x, y, widthCm: block.widthCm, depthCm: block.depthCm,
       heightCm: block.heightCm, elevationCm: block.elevationCm, cadLayer: block.cadLayer,
       colorIndex: block.colorIndex, rotationDeg: 0, snappedTo: `房间中央 5cm 模数 (X:${x}, Y:${y})`,
@@ -986,7 +986,7 @@ export default function App() {
           if (!target) return;
           const retainedBlocks = (target.placedBlocks || []).filter((block) => !block.id.startsWith('auto-layout:'));
           const layoutBlocks: PlacedBlockItem[] = newFurniture.map((item) => ({
-            id: `auto-layout:${item.id}`, blockId: item.id, name: item.name, category: 'furniture',
+            id: `auto-layout:${item.id}`, furnitureId: item.id, blockId: item.id, name: item.name, category: 'furniture',
             subCategory: item.category, x: item.x, y: item.y, widthCm: item.width, depthCm: item.depth,
             heightCm: item.height, elevationCm: item.elevation, cadLayer: 'A-FURN-AUTO', colorIndex: 3,
             rotationDeg: item.rotationY ?? 0, snappedTo: '2D 家具配置保存', placedAt: new Date().toISOString(),

@@ -660,6 +660,7 @@ export interface PersonalDetailBlockItem {
 // Placed Block on 2D Staking Canvas & 3D Synchronization
 export interface PlacedBlockItem {
   id: string;
+  furnitureId?: string; // stable link to the editable 3D/furniture record
   blockId: string;
   name: string;
   category: 'furniture' | 'detail_joint' | 'title_symbol' | 'mep_symbol' | 'hatch_pattern';
@@ -814,7 +815,6 @@ export interface SuLayoutExportConfig {
   includeFurnitureLayers: boolean;
   includeMepLightingCircuit: boolean;
 }
-
 
 
 

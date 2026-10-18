@@ -1,5 +1,15 @@
 import { RoomData, FurnitureItem, CollisionWarningIssue, CollisionOptimizationSolution } from '../types';
 
+export function getDoorSwingBounds(room: RoomData, door: RoomData['doors'][number]) {
+  const wall = door.wall === 'north' ? 'top' : door.wall === 'south' ? 'bottom' : door.wall === 'west' ? 'left' : door.wall === 'east' ? 'right' : door.wall;
+  const margin = 10;
+  const depth = door.width + 15;
+  if (wall === 'top') return { minX: door.offset - margin, maxX: door.offset + door.width + margin, minY: 0, maxY: depth };
+  if (wall === 'bottom') return { minX: door.offset - margin, maxX: door.offset + door.width + margin, minY: room.length - depth, maxY: room.length };
+  if (wall === 'left') return { minX: 0, maxX: depth, minY: door.offset - margin, maxY: door.offset + door.width + margin };
+  return { minX: room.width - depth, maxX: room.width, minY: door.offset - margin, maxY: door.offset + door.width + margin };
+}
+
 export function checkCollisionAndContractCompliance(
   room: RoomData,
   furnitureList: FurnitureItem[]
@@ -120,19 +130,14 @@ export function checkCollisionAndContractCompliance(
 
     // 3. Check Door Swing Blockage (防爆門/房門迴旋半徑干涉)
     room.doors.forEach((door) => {
-      // For bottom wall door (most common in Star Moon Bay master bedroom)
-      if (door.wall === 'bottom') {
-        const swingMinX = door.offset - 10;
-        const swingMaxX = door.offset + door.width + 10;
-        const swingMinY = room.length - door.width - 15;
-        const swingMaxY = room.length;
+        const swing = getDoorSwingBounds(room, door);
 
-        const overlapSwingX = itemLeft < swingMaxX && itemRight > swingMinX;
-        const overlapSwingY = itemTop < swingMaxY && itemBottom > swingMinY;
+        const overlapSwingX = itemLeft < swing.maxX && itemRight > swing.minX;
+        const overlapSwingY = itemTop < swing.maxY && itemBottom > swing.minY;
 
         if (overlapSwingX && overlapSwingY && itemElevBottom < door.height) {
-          const shiftTargetX = swingMaxX + 25;
-          const shiftTargetY = swingMinY - item.depth - 20;
+          const shiftTargetX = swing.maxX + 25;
+          const shiftTargetY = swing.minY - item.depth - 20;
 
           issues.push({
             id: `issue-doorswing-${item.id}-${door.id}`,
@@ -164,7 +169,6 @@ export function checkCollisionAndContractCompliance(
             ],
           });
         }
-      }
     });
 
     // 4. Check 5-Multiple Rule (5 倍數契約規範)
