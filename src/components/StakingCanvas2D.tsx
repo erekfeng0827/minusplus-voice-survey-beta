@@ -543,6 +543,58 @@ export const StakingCanvas2D: React.FC<StakingCanvas2DProps> = ({
     const isTable = /桌|茶几|餐桌|中島|檯面|table|desk/i.test(item.name) || /桌/i.test(item.subCategory || '');
     const isWardrobe = /衣櫃|高櫃|電視櫃|玄關櫃|wardrobe|cabinet/i.test(item.name) || /櫃/i.test(item.subCategory || '');
     const isHatch = item.category === 'hatch_pattern' || Boolean(item.hatchData);
+    const stairType = item.subCategory?.startsWith('stair:') ? item.subCategory.split(':')[1] : null;
+
+    if (stairType === 'straight') {
+      const treads = Math.max(4, Math.min(18, Math.round(bd / 22)));
+      return (
+        <g>
+          <rect x="2" y="2" width={bw - 4} height={bd - 4} fill="#3F5B63" fillOpacity="0.2" stroke={strokeCol} strokeWidth="1.2" />
+          {Array.from({ length: treads - 1 }).map((_, idx) => <line key={idx} x1="3" y1={(bd / treads) * (idx + 1)} x2={bw - 3} y2={(bd / treads) * (idx + 1)} stroke={strokeCol} strokeWidth="0.8" />)}
+          <path d={`M ${bw / 2} ${bd - 8} L ${bw / 2} 10 M ${bw / 2} 10 l -4 7 M ${bw / 2} 10 l 4 7`} fill="none" stroke="#E0A83C" strokeWidth="1.5" />
+        </g>
+      );
+    }
+
+    if (stairType === 'l_shape') {
+      const landing = Math.min(bw, bd) * 0.42;
+      return (
+        <g>
+          <path d={`M2 2 H${landing} V${bd - landing} H${bw - 2} V${bd - 2} H2 Z`} fill="#3F5B63" fillOpacity="0.2" stroke={strokeCol} strokeWidth="1.2" />
+          {Array.from({ length: 6 }).map((_, idx) => <line key={`v-${idx}`} x1="3" y1={4 + idx * Math.max(5, (bd - landing - 8) / 6)} x2={landing - 2} y2={4 + idx * Math.max(5, (bd - landing - 8) / 6)} stroke={strokeCol} strokeWidth="0.8" />)}
+          {Array.from({ length: 6 }).map((_, idx) => <line key={`h-${idx}`} x1={landing + idx * Math.max(5, (bw - landing - 8) / 6)} y1={bd - landing + 2} x2={landing + idx * Math.max(5, (bw - landing - 8) / 6)} y2={bd - 3} stroke={strokeCol} strokeWidth="0.8" />)}
+          <path d={`M ${landing / 2} 8 V ${bd - landing / 2} H ${bw - 8}`} fill="none" stroke="#E0A83C" strokeWidth="1.5" />
+        </g>
+      );
+    }
+
+    if (stairType === 'u_shape') {
+      const half = bw / 2;
+      const landingH = Math.max(16, bd * 0.22);
+      return (
+        <g>
+          <rect x="2" y="2" width={bw - 4} height={bd - 4} fill="#3F5B63" fillOpacity="0.2" stroke={strokeCol} strokeWidth="1.2" />
+          <line x1={half} y1="2" x2={half} y2={bd - landingH} stroke={strokeCol} strokeWidth="1.2" />
+          <line x1="2" y1={bd - landingH} x2={bw - 2} y2={bd - landingH} stroke={strokeCol} strokeWidth="1.2" />
+          {Array.from({ length: 7 }).map((_, idx) => <React.Fragment key={idx}><line x1="3" y1={4 + idx * (bd - landingH - 6) / 7} x2={half - 2} y2={4 + idx * (bd - landingH - 6) / 7} stroke={strokeCol} strokeWidth="0.75" /><line x1={half + 2} y1={4 + idx * (bd - landingH - 6) / 7} x2={bw - 3} y2={4 + idx * (bd - landingH - 6) / 7} stroke={strokeCol} strokeWidth="0.75" /></React.Fragment>)}
+          <path d={`M ${half / 2} 8 V ${bd - landingH / 2} H ${half + half / 2} V 8`} fill="none" stroke="#E0A83C" strokeWidth="1.5" />
+        </g>
+      );
+    }
+
+    if (stairType === 'spiral') {
+      const radius = Math.max(8, Math.min(bw, bd) / 2 - 3);
+      const cx = bw / 2;
+      const cy = bd / 2;
+      return (
+        <g>
+          <circle cx={cx} cy={cy} r={radius} fill="#3F5B63" fillOpacity="0.2" stroke={strokeCol} strokeWidth="1.2" />
+          {Array.from({ length: 12 }).map((_, idx) => { const angle = idx * Math.PI / 6; return <line key={idx} x1={cx} y1={cy} x2={cx + Math.cos(angle) * radius} y2={cy + Math.sin(angle) * radius} stroke={strokeCol} strokeWidth="0.75" />; })}
+          <circle cx={cx} cy={cy} r="3" fill="#E0A83C" />
+          <path d={`M ${cx + radius * 0.7} ${cy} A ${radius * 0.7} ${radius * 0.7} 0 1 0 ${cx} ${cy - radius * 0.7}`} fill="none" stroke="#E0A83C" strokeWidth="1.5" />
+        </g>
+      );
+    }
 
     if (isSofa) {
       const backH = Math.max(6, bd * 0.28);
