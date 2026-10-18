@@ -1289,11 +1289,11 @@ export function generateFullHouseDxfString(
   dxf += '0\nSECTION\n2\nENTITIES\n';
 
   const line = (ly: string, x1: number, y1: number, x2: number, y2: number) => {
-    return `0\nLINE\n8\n${ly}\n10\n${x1.toFixed(1)}\n20\n${y1.toFixed(1)}\n30\n0.0\n11\n${x2.toFixed(1)}\n21\n${y2.toFixed(1)}\n31\n0.0\n`;
+    return `0\nLINE\n8\n${ly}\n10\n${(x1 * 10).toFixed(1)}\n20\n${(y1 * 10).toFixed(1)}\n30\n0.0\n11\n${(x2 * 10).toFixed(1)}\n21\n${(y2 * 10).toFixed(1)}\n31\n0.0\n`;
   };
 
   const text = (ly: string, x: number, y: number, height: number, val: string) => {
-    return `0\nTEXT\n8\n${ly}\n10\n${x.toFixed(1)}\n20\n${y.toFixed(1)}\n30\n0.0\n40\n${height}\n1\n${val}\n`;
+    return `0\nTEXT\n8\n${ly}\n10\n${(x * 10).toFixed(1)}\n20\n${(y * 10).toFixed(1)}\n30\n0.0\n40\n${height * 10}\n1\n${val}\n`;
   };
 
   // 繪製每個放置好的房間

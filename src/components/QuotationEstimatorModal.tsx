@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   Calculator,
   Download,
@@ -42,21 +42,12 @@ export const QuotationEstimatorModal: React.FC<QuotationEstimatorModalProps> = (
     return activeRooms.reduce((acc, r) => acc + (r.width * r.length) / 10000 * 0.3025, 0);
   }, [activeRooms]);
 
-  const totalDropPing = useMemo(() => {
-    // 預估冷氣降板佔該空間 28%~35% 面積
-    return totalFloorPing * 0.32;
-  }, [totalFloorPing]);
-
-  const totalFlatCeilingPing = useMemo(() => {
-    return Math.max(0, totalFloorPing - totalDropPing);
-  }, [totalFloorPing, totalDropPing]);
-
   const totalMepPointsCount = useMemo(() => {
-    return activeRooms.reduce((acc, r) => acc + (r.electricalPoints?.length || 8), 0);
+    return activeRooms.reduce((acc, r) => acc + (r.electricalPoints?.length || 0), 0);
   }, [activeRooms]);
 
   const totalLightingPointsCount = useMemo(() => {
-    return activeRooms.reduce((acc, r) => acc + (r.lightingPoints?.length || 6), 0);
+    return activeRooms.reduce((acc, r) => acc + (r.lightingPoints?.length || 0), 0);
   }, [activeRooms]);
 
   // 初始工項資料
@@ -67,10 +58,10 @@ export const QuotationEstimatorModal: React.FC<QuotationEstimatorModalProps> = (
       name: '平頂矽酸鈣天花板 (H+265cm)',
       specification: '日本麗仕 6mm 防火防潮矽酸鈣板 + 鍍鋅防鏽輕鋼骨料 @30cm',
       unit: '坪',
-      quantity: Math.round(totalFlatCeilingPing * 10) / 10 || 4.2,
+      quantity: 0,
       unitPrice: 4200,
       subtotal: 0,
-      notes: '符合 V-01 五倍數原則，結構梁下淨高 265cm 避讓',
+      notes: '待天花分區面積完成後輸入；不得用地坪面積直接推定',
       ruleReference: '降板裁決_v003 第2條',
     },
     {
@@ -79,10 +70,10 @@ export const QuotationEstimatorModal: React.FC<QuotationEstimatorModalProps> = (
       name: '冷氣吊隱箱跌級降板造型天花 (H+230cm)',
       specification: '配合吊隱風箱下沉 50cm，雙層下垂工法含 45° 倒角防裂',
       unit: '坪',
-      quantity: Math.round(totalDropPing * 10) / 10 || 2.0,
+      quantity: 0,
       unitPrice: 5800,
       subtotal: 0,
-      notes: '預留 28cm 機身 + 5cm 吊筋減震橡膠墊',
+      notes: '待降板邊界或天花圖確認後輸入',
       ruleReference: '降板裁決_v003 第4條',
     },
     {
@@ -91,10 +82,10 @@ export const QuotationEstimatorModal: React.FC<QuotationEstimatorModalProps> = (
       name: '窗簾盒暨 LED 間接反光燈槽',
       specification: '深 20cm × 降 15cm，夾板結構底層加強，含雙色溫鋁擠燈條槽',
       unit: 'm',
-      quantity: 4.8,
+      quantity: 0,
       unitPrice: 1200,
       subtotal: 0,
-      notes: '預留電動窗簾 110V 獨立接地電源線路',
+      notes: '待窗簾盒實測長度確認後輸入',
       ruleReference: '大樣圖庫 D-02',
     },
     {
@@ -103,10 +94,10 @@ export const QuotationEstimatorModal: React.FC<QuotationEstimatorModalProps> = (
       name: '結構大梁天花假梁包覆工程',
       specification: '寬 45cm × 高 140cm 包覆大梁穿越區，雙層石膏板隔音',
       unit: 'm',
-      quantity: 3.6,
+      quantity: 0,
       unitPrice: 1600,
       subtotal: 0,
-      notes: '遮蔽穿心梁避讓管線，外觀純平無起伏',
+      notes: '待梁體包覆範圍確認後輸入',
       ruleReference: '大樣圖庫 D-06',
     },
     {
@@ -115,7 +106,7 @@ export const QuotationEstimatorModal: React.FC<QuotationEstimatorModalProps> = (
       name: '110V 雙聯接地插座專用迴路',
       specification: '太平洋 2.0mm 單芯線 + CD 阻燃導管，全室迴路獨立無共用',
       unit: '組',
-      quantity: totalMepPointsCount || 8,
+      quantity: totalMepPointsCount,
       unitPrice: 1800,
       subtotal: 0,
       notes: '符合現場放樣 H+30cm / H+120cm 規範',
@@ -127,10 +118,10 @@ export const QuotationEstimatorModal: React.FC<QuotationEstimatorModalProps> = (
       name: '220V 吊隱冷氣機與大功率專用迴路',
       specification: '太平洋 3.5mm² 絞線 + 漏電斷路器 20A 專用箱體接點',
       unit: '組',
-      quantity: scope === 'CURRENT_ROOM' ? 1 : 4,
+      quantity: 0,
       unitPrice: 3200,
       subtotal: 0,
-      notes: '配置於冷氣機側天花降板上方 H+220cm',
+      notes: '待空調設備表確認後輸入',
       ruleReference: '水電規範 E-POWR-220V',
     },
     {
@@ -139,7 +130,7 @@ export const QuotationEstimatorModal: React.FC<QuotationEstimatorModalProps> = (
       name: '7.5cm 深杯防眩 LED 崁燈 (含洗孔與配線)',
       specification: 'OSRAM 9W 晶片，Ra>92，UGR<19 防眩光深杯，色溫 3000K',
       unit: '盞',
-      quantity: totalLightingPointsCount || 6,
+      quantity: totalLightingPointsCount,
       unitPrice: 1250,
       subtotal: 0,
       notes: '天花高層 FL+265 開孔放樣，距牆安全距離 80cm',
@@ -158,6 +149,14 @@ export const QuotationEstimatorModal: React.FC<QuotationEstimatorModalProps> = (
       ruleReference: '降板裁決_v003 驗收章節',
     },
   ]);
+
+  useEffect(() => {
+    setItems((previous) => previous.map((item) => {
+      if (item.id === 'Q-05') return { ...item, quantity: totalMepPointsCount };
+      if (item.id === 'Q-07') return { ...item, quantity: totalLightingPointsCount };
+      return item;
+    }));
+  }, [totalMepPointsCount, totalLightingPointsCount]);
 
   // 動態計算小計
   const calculatedItems = useMemo(() => {
@@ -239,14 +238,14 @@ export const QuotationEstimatorModal: React.FC<QuotationEstimatorModalProps> = (
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-white tracking-wide">
-                  自動生成報價概算 (天花降板 / 水電照明)
+                  工程數量與報價資料接口
                 </h3>
                 <span className="text-[10px] bg-amber-950 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full font-semibold">
-                  依據 5 倍數契約自動算量
+                  實測數量優先
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                依照《降板裁決_v003》之 265 / 230 / 215 標高與水電點位，自動換算工料複價
+                只自動帶入已存在的空間與點位資料；缺少的數量保持 0，單價需人工確認
               </p>
             </div>
           </div>
@@ -298,7 +297,7 @@ export const QuotationEstimatorModal: React.FC<QuotationEstimatorModalProps> = (
 
             <span className="text-slate-500 ml-2">
               總地坪: <b className="text-amber-400">{totalFloorPing.toFixed(1)} 坪</b> | 
-              降板天花: <b className="text-amber-400">{totalDropPing.toFixed(1)} 坪</b>
+              已建檔水電: <b className="text-amber-400">{totalMepPointsCount}</b> | 已建檔燈具: <b className="text-amber-400">{totalLightingPointsCount}</b>
             </span>
           </div>
 
@@ -397,11 +396,10 @@ export const QuotationEstimatorModal: React.FC<QuotationEstimatorModalProps> = (
             <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-400 space-y-2">
               <div className="flex items-center gap-1.5 font-bold text-slate-200">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                報價簽證合規保證說明
+                資料品質與使用限制
               </div>
               <p className="leading-relaxed">
-                本報價單已強制落實《室內設計施工契約》與幾何契約「5倍數整數原則」。
-                所列日本麗仕矽酸鈣天花與吊隱冷氣降板已全額預留減震吊筋與 45° 倒角工法，施工期間絕無變更追加之隱形費用。
+                數量 0 代表目前圖面或設備資料不足，不代表不施作。畫面單價僅為可編輯參考值；正式報價前仍須由設計師核對數量、材料、工法與供應商價格。
               </p>
             </div>
 

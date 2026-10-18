@@ -15,10 +15,10 @@ export function generateDxfString(room: RoomData, projectName: string = '室內�
   let dxf = '';
 
   // 1. HEADER SECTION
-  dxf += '0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n9\n$INSUNITS\n70\n4\n0\nENDSEC\n'; // 4 = Millimeters / Centimeters
+  dxf += '0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n9\n$INSUNITS\n70\n4\n0\nENDSEC\n'; // 4 = millimeters; all internal cm coordinates are converted ×10 on write
 
   // 2. TABLES SECTION (LAYERS)
-  dxf += '0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLAYER\n70\n7\n';
+  dxf += '0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLAYER\n70\n10\n';
   const layers = [
     { name: 'WALL', color: 7 }, // White
     { name: 'BEAM', color: 1 }, // Red
@@ -27,6 +27,9 @@ export function generateDxfString(room: RoomData, projectName: string = '室內�
     { name: 'VOICE_TAGS', color: 6 }, // Magenta
     { name: 'ELECTRICAL', color: 2 }, // Yellow
     { name: 'OPENING', color: 5 }, // Blue
+    { name: 'STRUCT_COLUMN', color: 1 },
+    { name: 'FURNITURE', color: 3 },
+    { name: 'STAIR', color: 6 },
   ];
 
   layers.forEach((ly) => {
@@ -78,13 +81,14 @@ export function generateDxfString(room: RoomData, projectName: string = '室內�
   // Doors
   if (room.doors && room.doors.length > 0) {
     room.doors.forEach((d) => {
-      if (d.wall === 'bottom') {
+      const wall = normalizeWall(d.wall);
+      if (wall === 'bottom') {
         dxf += line('OPENING', d.offset, 0, d.offset + d.width, 0);
         dxf += text('OPENING', d.offset + 5, -12, 6, `${d.name} W:${d.width} H:${d.height}`);
-      } else if (d.wall === 'top') {
+      } else if (wall === 'top') {
         dxf += line('OPENING', d.offset, l, d.offset + d.width, l);
         dxf += text('OPENING', d.offset + 5, l + 10, 6, `${d.name} W:${d.width} H:${d.height}`);
-      } else if (d.wall === 'left') {
+      } else if (wall === 'left') {
         dxf += line('OPENING', 0, d.offset, 0, d.offset + d.width);
         dxf += text('OPENING', -15, d.offset + 5, 6, `${d.name} W:${d.width}`);
       } else if (d.wall === 'right') {
@@ -97,10 +101,31 @@ export function generateDxfString(room: RoomData, projectName: string = '室內�
   // Windows
   if (room.windows && room.windows.length > 0) {
     room.windows.forEach((win) => {
-      dxf += line('OPENING', win.offset, l, win.offset + win.width, l);
-      dxf += text('OPENING', win.offset + 10, l + 12, 6, `${win.name} W:${win.width} SILL:${win.sillHeight}`);
+      const wall = normalizeWall(win.wall);
+      if (wall === 'top' || wall === 'bottom') {
+        const y = wall === 'top' ? l : 0;
+        dxf += line('OPENING', win.offset, y, win.offset + win.width, y);
+        dxf += text('OPENING', win.offset + 10, y + (wall === 'top' ? 12 : -12), 6, `${win.name} W:${win.width} SILL:${win.sillHeight}`);
+      } else {
+        const x = wall === 'left' ? 0 : w;
+        dxf += line('OPENING', x, win.offset, x, win.offset + win.width);
+        dxf += text('OPENING', x + (wall === 'left' ? -15 : 10), win.offset + 5, 6, `${win.name} W:${win.width} SILL:${win.sillHeight}`);
+      }
     });
   }
+
+  (room.columns || []).forEach((column) => {
+    const x = column.x ?? 0;
+    const y = column.y ?? 0;
+    dxf += rectangle('STRUCT_COLUMN', x, y, column.width, column.depth);
+    dxf += text('STRUCT_COLUMN', x + 3, y + Math.min(column.depth - 3, 10), 5, column.name);
+  });
+
+  (room.placedBlocks || []).forEach((block) => {
+    const layer = block.subCategory.startsWith('stair:') ? 'STAIR' : 'FURNITURE';
+    dxf += rectangle(layer, block.x, block.y, block.widthCm, block.depthCm);
+    dxf += text(layer, block.x + 3, block.y + Math.min(block.depthCm - 3, 10), 5, `${block.name} ${block.widthCm}x${block.depthCm}cm`);
+  });
 
   // Dimensions
   // Bottom horizontal
@@ -138,7 +163,7 @@ export function generateDxfString(room: RoomData, projectName: string = '室內�
   // Project Header Block
   dxf += text('WALL', 0, l + 40, 12, `${projectName} - ${room.roomName}`);
   dxf += text('DIMENSION', 0, l + 25, 7, `ELEVATION CONTRACT: FL+0, BEAM:${beamH}cm, DROP:${dropH}cm, SLAB:${h}cm, BATH_DROP:${bathDrop}cm`);
-  dxf += text('DIMENSION', 0, l + 12, 6, `CERTIFICATION: V-01~V-10 PASSED | CODEX JINGJING AUTOMATION READY`);
+  dxf += text('DIMENSION', 0, l + 12, 6, 'STATUS: GENERATED_FROM_CURRENT_ROOM_DATA | REQUIRES CAD REVIEW');
 
   // END OF ENTITIES
   dxf += '0\nENDSEC\n0\nEOF\n';
@@ -147,12 +172,27 @@ export function generateDxfString(room: RoomData, projectName: string = '室內�
 }
 
 function line(layer: string, x1: number, y1: number, x2: number, y2: number): string {
-  return `0\nLINE\n8\n${layer}\n10\n${x1.toFixed(2)}\n20\n${y1.toFixed(2)}\n30\n0.0\n11\n${x2.toFixed(2)}\n21\n${y2.toFixed(2)}\n31\n0.0\n`;
+  return `0\nLINE\n8\n${layer}\n10\n${(x1 * 10).toFixed(2)}\n20\n${(y1 * 10).toFixed(2)}\n30\n0.0\n11\n${(x2 * 10).toFixed(2)}\n21\n${(y2 * 10).toFixed(2)}\n31\n0.0\n`;
 }
 
 function text(layer: string, x: number, y: number, height: number, content: string): string {
   const sanitized = content.replace(/[\r\n]/g, ' ');
-  return `0\nTEXT\n8\n${layer}\n10\n${x.toFixed(2)}\n20\n${y.toFixed(2)}\n30\n0.0\n40\n${height.toFixed(2)}\n1\n${sanitized}\n`;
+  return `0\nTEXT\n8\n${layer}\n10\n${(x * 10).toFixed(2)}\n20\n${(y * 10).toFixed(2)}\n30\n0.0\n40\n${(height * 10).toFixed(2)}\n1\n${sanitized}\n`;
+}
+
+function rectangle(layer: string, x: number, y: number, width: number, depth: number): string {
+  return line(layer, x, y, x + width, y)
+    + line(layer, x + width, y, x + width, y + depth)
+    + line(layer, x + width, y + depth, x, y + depth)
+    + line(layer, x, y + depth, x, y);
+}
+
+function normalizeWall(wall: string): 'top' | 'bottom' | 'left' | 'right' {
+  if (wall === 'north') return 'top';
+  if (wall === 'south') return 'bottom';
+  if (wall === 'west') return 'left';
+  if (wall === 'east') return 'right';
+  return wall as 'top' | 'bottom' | 'left' | 'right';
 }
 
 /**
@@ -175,7 +215,7 @@ export function downloadDxfFile(room: RoomData, projectName: string = '室內設
 /**
  * 專為 SketchUp (schedule up) 量身打造的 1:1 放樣與 4 向立面剖切 DXF
  * 特點：
- * 1. 單位強制為公分 (Centimeters)，SketchUp 匯入時只要勾選單位「公分」，絕不縮放變形
+ * 1. DXF 宣告毫米並將內部公分資料 ×10 寫入；SketchUp 匯入時使用毫米，避免縮放變形
  * 2. 平面封閉矩形 + 四面立面原尺寸展開（含 280 天花、265 梁底、230 降板、80 地櫃線）
  * 3. 匯入 SketchUp 後直接是封閉線框，拿起「推拉 (Push/Pull)」工具 1 秒長出 3D 牆體，直接銜接 Enscape/V-Ray 渲染！
  */
@@ -271,7 +311,7 @@ export function generateSketchUpDxfString(room: RoomData, projectName: string = 
 
   // 說明標註
   dxf += text('SKP_DIM_NOTES', 0, l + 50, 12, `${projectName} - SketchUp 原寸 1:1 剖切放樣檔`);
-  dxf += text('SKP_DIM_NOTES', 0, l + 30, 8, `使用方法：SketchUp 點檔案->匯入->選此.dxf (單位設公分)，用推拉工具1秒起模！`);
+  dxf += text('SKP_DIM_NOTES', 0, l + 30, 8, '使用方法：SketchUp 匯入此 DXF 時使用毫米；匯入後仍須人工檢查牆厚、洞口與封閉面。');
 
   // END OF ENTITIES
   dxf += '0\nENDSEC\n0\nEOF\n';
