@@ -1,0 +1,25 @@
+{
+  "name": "室內設計、測量、圖面繪製系統",
+  "short_name": "室內設計測繪",
+  "description": "室內設計、測量、圖面繪製系統：幾何契約覆核、3D 碰撞預警系統、室內丈量放樣尺寸圖、AutoCAD DXF 與全套施工圖自動化流水線",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#070b14",
+  "theme_color": "#070b14",
+  "categories": ["productivity", "utilities", "business"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
