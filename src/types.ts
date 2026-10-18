@@ -221,6 +221,13 @@ export interface RoomData {
     targetRoomName?: string; // 穿插相鄰空間名稱，如 "客用衛浴"
   }[];
   wallThickness: number; // cm (丈量統一預設 10cm，外牆預設 15cm)
+  datumOrigin?: { // 現場丈量基準原點，預設取玄關大門鉸鏈側牆角
+    x: number;
+    y: number;
+    wall: 'top' | 'bottom' | 'left' | 'right';
+    sourceDoorId: string;
+    description: string;
+  };
   wallConfigs?: WallConfigs; // 個別牆面外牆/內牆設定 (北/南/東/西)
   columns?: Column[]; // 結構柱體 (角柱、牆柱、獨立柱)
   evaluation?: VoiceEvaluation;
@@ -807,7 +814,6 @@ export interface SuLayoutExportConfig {
   includeFurnitureLayers: boolean;
   includeMepLightingCircuit: boolean;
 }
-
 
 
 

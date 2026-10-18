@@ -2837,6 +2837,13 @@ export const StakingCanvas2D: React.FC<StakingCanvas2DProps> = ({
             </g>
 
             {/* USER REQUESTED: 已置入專屬圖庫圖塊渲染與互動 (Placed Blocks) */}
+            {room.datumOrigin && (
+              <g transform={`translate(${room.datumOrigin.x}, ${room.datumOrigin.y})`} className="pointer-events-none">
+                <circle r="11" fill="#B4503A" stroke="#F8F8F6" strokeWidth="2" />
+                <path d="M -16 0 H 16 M 0 -16 V 16" stroke="#F8F8F6" strokeWidth="2" />
+                <text x="16" y="-14" fill="#B4503A" fontSize="10" fontWeight="bold">丈量原點 0,0</text>
+              </g>
+            )}
             {(room.placedBlocks || []).map((pb) => {
               const isSelected = selectedPlacedBlockId === pb.id;
               const w = pb.widthCm;

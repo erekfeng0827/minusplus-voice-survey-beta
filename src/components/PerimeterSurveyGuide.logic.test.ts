@@ -34,6 +34,11 @@ const beam = parsePerimeterCommand('東牆有結構梁，離起點90，寬35，�
 assert.equal(beam.draft?.kind, 'beam');
 assert.equal(beam.draft?.kind === 'beam' ? beam.draft.clearHeight : 0, 265);
 
+const cabinet = parsePerimeterCommand('左牆有玄關鞋櫃，離起點60，寬150，櫃深40，高220，懸空20');
+assert.equal(cabinet.draft?.kind, 'cabinet');
+assert.equal(cabinet.draft?.kind === 'cabinet' ? cabinet.draft.elevation : 0, 20);
+assert.equal(cabinet.missing.length, 0);
+
 const incomplete = parsePerimeterCommand('左牆有一扇窗');
 assert.equal(incomplete.draft, undefined);
 assert.ok(incomplete.missing.includes('離牆角距離'));
