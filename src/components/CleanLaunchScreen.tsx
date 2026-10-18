@@ -14,7 +14,7 @@ export const CleanLaunchScreen: React.FC<Props> = ({ hasSavedProject, savedProje
     <div className="mx-auto flex min-h-[100svh] w-full max-w-6xl flex-col px-6 pb-10 pt-[max(32px,env(safe-area-inset-top))] sm:px-10 lg:px-16">
       <header className="flex items-center justify-between border-b border-[#DDD7CE] pb-6">
         <div className="flex items-center gap-4">
-          <img src="./minusplus-logo.png" alt="加減設計" className="h-16 w-32 rounded-sm object-cover" />
+          <img src="./minusplus-logo.png" alt="加減設計 MINUSPLUS DESIGN" className="h-16 w-44 object-contain object-left" />
           <div className="hidden border-l border-[#DDD7CE] pl-4 sm:block">
             <div className="font-['Archivo'] text-[11px] font-semibold uppercase tracking-[0.22em] text-[#3F5B63]">Minusplus Design</div>
             <div className="mt-1 font-['Noto_Sans_TC'] text-sm text-[#23301F]/65">室內設計數位工作台</div>
@@ -31,7 +31,7 @@ export const CleanLaunchScreen: React.FC<Props> = ({ hasSavedProject, savedProje
         </div>
 
         <div className="mt-10 grid gap-4 md:grid-cols-3">
-          <button type="button" onClick={onStartBlank} className="group min-h-44 rounded-3xl bg-[#3F5B63] p-6 text-left text-[#F8F8F6] shadow-[0_18px_45px_rgba(63,91,99,0.18)] transition hover:-translate-y-1 active:translate-y-0">
+          <button type="button" onClick={onStartBlank} className="group min-h-44 rounded-3xl bg-[#23301F] p-6 text-left text-[#F8F8F6] shadow-[0_18px_45px_rgba(35,48,31,0.18)] transition hover:-translate-y-1 active:translate-y-0">
             <Plus className="h-7 w-7" />
             <strong className="mt-8 block font-['Noto_Serif_TC'] text-2xl">开始空白案</strong>
             <span className="mt-2 block text-sm text-[#F8F8F6]/75">从玄关起点开始口说丈量</span>

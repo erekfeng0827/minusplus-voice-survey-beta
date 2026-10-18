@@ -40,7 +40,7 @@ export const CleanStepHeader: React.FC<CleanStepNavigationProps> = ({
   return (
     <header className="survey-header z-30 flex w-full min-w-0 shrink-0 flex-col gap-2 border-b px-3 py-2.5 shadow-lg backdrop-blur-md sm:px-4 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-        <img src="./minusplus-logo.png" alt="加減設計" className="h-8 w-16 rounded-sm object-cover sm:h-10 sm:w-20" />
+        <img src="./minusplus-logo.png" alt="加減設計 MINUSPLUS DESIGN" className="h-8 w-24 object-contain object-left sm:h-10 sm:w-28" />
         <div>
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-[#F8F8F6] tracking-wide truncate max-w-[200px] md:max-w-[320px]">{projectName}</span>

@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Check, Compass, DoorOpen, Mic, MicOff, RotateCcw, Ruler, SquareDashed } from 'lucide-react';
-import { Door, PlacedBlockItem, RoomData, WindowOpening } from '../types';
+import { Beam, Column, Door, PlacedBlockItem, RoomData, WindowOpening } from '../types';
 import { detectStairType, STAIR_BLOCK_CATALOG, StairType } from '../data/stairBlockCatalog';
 
 type Wall = 'top' | 'bottom' | 'left' | 'right';
 type Draft =
   | { kind: 'door'; label: string; wall: Wall; offset: number; width: number; height: number; summary: string[]; source: string }
   | { kind: 'window'; label: string; wall: Wall; offset: number; width: number; height: number; sillHeight: number; summary: string[]; source: string }
+  | { kind: 'column'; label: string; wall: Wall; offset: number; width: number; depth: number; height: number; summary: string[]; source: string }
+  | { kind: 'beam'; label: string; wall: Wall; offset: number; width: number; depth: number; clearHeight: number; summary: string[]; source: string }
   | { kind: 'stair'; stairType: StairType; label: string; wall: Wall; offset: number; width: number; depth: number; risers?: number; turnDirection?: 'left' | 'right'; summary: string[]; source: string };
 
 interface Props {
@@ -43,6 +45,24 @@ export const parsePerimeterCommand = (source: string): { draft?: Draft; missing:
   if (!wall) missing.push('牆面');
   if (offset === undefined) missing.push('離牆角距離');
   if (width === undefined) missing.push('寬度');
+
+  if (/柱|column/i.test(text)) {
+    const depth = valueCm(text, ['深度', '進深', '深']);
+    if (depth === undefined) missing.push('柱深');
+    if (height === undefined) missing.push('柱高');
+    if (!wall || offset === undefined || width === undefined || depth === undefined || height === undefined) return { missing };
+    const label = /鋼柱|钢柱/.test(text) ? '鋼柱' : /包柱/.test(text) ? '包覆柱' : 'RC 結構柱';
+    return { draft: { kind: 'column', label, wall, offset, width, depth, height, summary: [`${WALL_LABEL[wall]}${label}`, `離牆角 ${offset}cm`, `${width} × ${depth}cm`, `高 ${height}cm`], source }, missing };
+  }
+
+  if (/梁|beam/i.test(text)) {
+    const depth = valueCm(text, ['梁深', '深度', '深']);
+    const clearHeight = valueCm(text, ['梁下淨高', '梁下净高', '梁下', '淨高', '净高']);
+    if (depth === undefined) missing.push('梁深');
+    if (clearHeight === undefined) missing.push('梁下淨高');
+    if (!wall || offset === undefined || width === undefined || depth === undefined || clearHeight === undefined) return { missing };
+    return { draft: { kind: 'beam', label: '結構梁', wall, offset, width, depth, clearHeight, summary: [`${WALL_LABEL[wall]}結構梁`, `離牆角 ${offset}cm`, `梁寬 ${width}cm × 梁深 ${depth}cm`, `梁下淨高 ${clearHeight}cm`], source }, missing };
+  }
 
   if (/樓梯|楼梯|[LU]\s*(?:型)?梯|旋轉梯|旋转梯|螺旋梯|直梯/i.test(text)) {
     const stairType = detectStairType(text);
@@ -125,6 +145,13 @@ export const PerimeterSurveyGuide: React.FC<Props> = ({ room, onUpdateRoom, onNo
     } else if (draft.kind === 'window') {
       const windowItem: WindowOpening = { id: `guided-window-${now}`, name: draft.label, width: draft.width, height: draft.height, sillHeight: draft.sillHeight, wall: draft.wall, offset: draft.offset, offsetReference: 'left' };
       onUpdateRoom({ ...room, windows: [...(room.windows || []), windowItem], lastUpdated: new Date().toISOString() });
+    } else if (draft.kind === 'column') {
+      const column: Column = { id: `guided-column-${now}`, name: draft.label, width: draft.width, depth: draft.depth, height: draft.height, positionType: 'wall', wall: draft.wall, offset: draft.offset, offsetReference: 'left', material: draft.label === '鋼柱' ? 'steel' : draft.label === '包覆柱' ? 'encased' : 'rc' };
+      onUpdateRoom({ ...room, columns: [...(room.columns || []), column], lastUpdated: new Date().toISOString() });
+    } else if (draft.kind === 'beam') {
+      const horizontal = draft.wall === 'top' || draft.wall === 'bottom';
+      const beam: Beam = { id: `guided-beam-${now}`, name: draft.label, width: draft.width, depth: draft.depth, clearHeight: draft.clearHeight, orientation: horizontal ? 'horizontal' : 'vertical', y: horizontal ? draft.offset : 0, x: horizontal ? 0 : draft.offset };
+      onUpdateRoom({ ...room, beams: [...(room.beams || []), beam], lastUpdated: new Date().toISOString() });
     } else {
       const horizontal = draft.wall === 'top' || draft.wall === 'bottom';
       const definition = STAIR_BLOCK_CATALOG[draft.stairType];
@@ -165,7 +192,7 @@ export const PerimeterSurveyGuide: React.FC<Props> = ({ room, onUpdateRoom, onNo
           {missing.length > 0 && <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">还缺少：{missing.join('、')}。系统不会自行猜测。</div>}
           {draft && <div className="rounded-2xl border border-emerald-500/50 bg-emerald-500/10 p-4"><div className="mb-2 flex items-center gap-2 text-sm font-black text-emerald-300"><SquareDashed className="h-4 w-4" />写入前确认</div><div className="flex flex-wrap gap-2">{draft.summary.map((item) => <span key={item} className="rounded-lg bg-[#10170f] px-2.5 py-1.5 text-xs text-[#F8F8F6]">{item}</span>)}</div><div className="mt-4 flex gap-2"><button type="button" onClick={confirm} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-black text-black"><Check className="h-5 w-5" />确认并放到图面</button><button type="button" onClick={() => { setDraft(null); setMissing([]); }} className="rounded-xl bg-[#23301F] px-4 text-[#DDD7CE]"><RotateCcw className="h-4 w-4" /></button></div></div>}
 
-          <div className="grid grid-cols-3 gap-2 text-center text-[11px]"><div className="rounded-xl bg-[#182216] p-2 text-[#DDD7CE]"><DoorOpen className="mx-auto mb-1 h-4 w-4 text-amber-300" />门 {room.doors?.length || 0}</div><div className="rounded-xl bg-[#182216] p-2 text-[#DDD7CE]"><SquareDashed className="mx-auto mb-1 h-4 w-4 text-sky-300" />窗 {room.windows?.length || 0}</div><div className="rounded-xl bg-[#182216] p-2 text-[#DDD7CE]"><Compass className="mx-auto mb-1 h-4 w-4 text-emerald-300" />楼梯 {(room.placedBlocks || []).filter((item) => item.subCategory.startsWith('stair')).length}</div></div>
+          <div className="grid grid-cols-5 gap-2 text-center text-[10px]"><div className="rounded-xl bg-[#182216] p-2 text-[#DDD7CE]"><DoorOpen className="mx-auto mb-1 h-4 w-4 text-amber-300" />门 {room.doors?.length || 0}</div><div className="rounded-xl bg-[#182216] p-2 text-[#DDD7CE]"><SquareDashed className="mx-auto mb-1 h-4 w-4 text-sky-300" />窗 {room.windows?.length || 0}</div><div className="rounded-xl bg-[#182216] p-2 text-[#DDD7CE]"><Ruler className="mx-auto mb-1 h-4 w-4 text-[#D99AA2]" />柱 {room.columns?.length || 0}</div><div className="rounded-xl bg-[#182216] p-2 text-[#DDD7CE]"><Ruler className="mx-auto mb-1 h-4 w-4 text-[#3F5B63]" />梁 {room.beams?.length || 0}</div><div className="rounded-xl bg-[#182216] p-2 text-[#DDD7CE]"><Compass className="mx-auto mb-1 h-4 w-4 text-emerald-300" />梯 {(room.placedBlocks || []).filter((item) => item.subCategory.startsWith('stair')).length}</div></div>
         </div>
       </div>
     </section>

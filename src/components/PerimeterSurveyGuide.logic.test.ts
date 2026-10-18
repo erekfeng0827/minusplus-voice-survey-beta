@@ -26,8 +26,16 @@ assert.ok(missingTurn.missing.includes('轉向（左轉或右轉）'));
 const spiral = parsePerimeterCommand('南牆有旋轉梯，離起點50，寬160，總長160，共16階，左轉');
 assert.equal(spiral.draft?.kind === 'stair' ? spiral.draft.stairType : '', 'spiral');
 
+const column = parsePerimeterCommand('北牆有RC結構柱，離左牆角120，寬50，深45，高280');
+assert.equal(column.draft?.kind, 'column');
+assert.equal(column.draft?.kind === 'column' ? column.draft.depth : 0, 45);
+
+const beam = parsePerimeterCommand('東牆有結構梁，離起點90，寬35，梁深55，梁下淨高265');
+assert.equal(beam.draft?.kind, 'beam');
+assert.equal(beam.draft?.kind === 'beam' ? beam.draft.clearHeight : 0, 265);
+
 const incomplete = parsePerimeterCommand('左牆有一扇窗');
 assert.equal(incomplete.draft, undefined);
 assert.ok(incomplete.missing.includes('離牆角距離'));
 
-console.log('PerimeterSurveyGuide logic: 4 cases passed');
+console.log('PerimeterSurveyGuide logic: PASS');
