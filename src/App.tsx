@@ -65,6 +65,7 @@ import { NewProjectSurveyWizardModal } from './components/NewProjectSurveyWizard
 import { CleanStepHeader } from './components/CleanStepHeader';
 import { CleanMeasureWorkspace } from './components/CleanMeasureWorkspace';
 import { FloorplanPdfImportModal } from './components/FloorplanPdfImportModal';
+import { CleanLaunchScreen } from './components/CleanLaunchScreen';
 import { useAuth } from './context/AuthContext';
 import { downloadDxfFile } from './utils/dxfExporter';
 
@@ -91,6 +92,7 @@ export default function App() {
   }, [theme]);
 
   const [showDebug, setShowDebug] = useState(false);
+  const [showLaunchScreen, setShowLaunchScreen] = useState(true);
 
   // 快捷鍵觸發除錯面板: Ctrl+Shift+D
   useEffect(() => {
@@ -362,6 +364,49 @@ export default function App() {
     if (workflow === 'layout') setActiveMainTab('2d_staking');
     if (workflow === 'audit') setActiveMainTab('blueprints');
   }, [workflow]);
+
+  const startBlankProject = () => {
+    const now = Date.now();
+    const blankRoom: RoomData = {
+      id: `room-entry-${now}`,
+      roomName: '入口空间',
+      width: 400,
+      length: 500,
+      height: 280,
+      ceilingDrop: 230,
+      beamHeight: 265,
+      bathKitchenDrop: 215,
+      wallThickness: 15,
+      evaluation: { score: 0, clarity: '尚未丈量', missingElements: ['空间长宽', '门窗位置'], rule5MultiplePassed: true, suggestions: '请从玄关起点开始口述。' },
+      beams: [], doors: [], windows: [], voiceMemos: [], electricalPoints: [], placedBlocks: [], furniture: [],
+      lastUpdated: new Date().toISOString(),
+    };
+    handleStartFreshProject([blankRoom], '未命名丈量案');
+    setCleanStep('1_survey');
+    setWorkflow('measure');
+    setShowLaunchScreen(false);
+  };
+
+  const useCompleteExample = () => {
+    const exampleRooms = JSON.parse(JSON.stringify(INITIAL_ROOMS)) as RoomData[];
+    handleStartFreshProject(exampleRooms, '标准户型完整范例');
+    setCleanStep('3_layout');
+    setWorkflow('layout');
+    setActiveMainTab('2d_staking');
+    setShowLaunchScreen(false);
+  };
+
+  if (showLaunchScreen) {
+    return (
+      <CleanLaunchScreen
+        hasSavedProject={Boolean(localStorage.getItem('minusplus_active_rooms'))}
+        savedProjectName={projectName}
+        onStartBlank={startBlankProject}
+        onUseExample={useCompleteExample}
+        onContinue={() => setShowLaunchScreen(false)}
+      />
+    );
+  }
 
   return (
     // 🌟 100% 滿版無邊際畫布 (Overflow Hidden)
@@ -786,7 +831,7 @@ export default function App() {
       </div>
 
       {/* 🛠️ 常駐緊急快取清理/除錯按鈕 (Bottom-Left Floating Reset/Debug Trigger) */}
-      <div className="fixed bottom-3 left-3 z-30 flex items-center gap-1.5 bg-[#121810]/80 backdrop-blur-md p-1.5 rounded-xl border border-[#3F5B63]/40 shadow-lg">
+      <div className="fixed bottom-3 left-3 z-30 hidden items-center gap-1.5 bg-[#121810]/80 backdrop-blur-md p-1.5 rounded-xl border border-[#3F5B63]/40 shadow-lg lg:flex">
         <button
           onClick={handleResetMinusPlusStorage}
           className="px-2.5 py-1.5 rounded-lg bg-red-950/80 hover:bg-red-900 border border-red-500/50 text-red-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
