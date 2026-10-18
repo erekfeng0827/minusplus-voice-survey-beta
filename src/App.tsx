@@ -222,6 +222,17 @@ export default function App() {
 
   const currentRoom = rooms.find((r) => r.id === selectedRoomId) || rooms[0] || INITIAL_ROOMS[0];
   const stitchedPlan = calculateStitchedFloorPlan(rooms);
+  const surveyReady = rooms.length > 0 && rooms.every((room) => room.width > 0 && room.length > 0 && room.height > 0)
+    && rooms.some((room) => (room.doors?.length || 0) + (room.windows?.length || 0) + (room.voiceMemos?.length || 0) > 0);
+  const stitchReady = rooms.length === 1
+    ? surveyReady
+    : stitchedPlan.placements.length === rooms.length && stitchedPlan.zeroCollisionVerified === true;
+  const layoutReady = rooms.some((room) => (room.furniture?.length || 0) + (room.placedBlocks?.length || 0) > 0);
+  const completedCleanSteps: Array<'1_survey' | '2_stitch' | '3_layout'> = [
+    ...(surveyReady ? ['1_survey' as const] : []),
+    ...(stitchReady ? ['2_stitch' as const] : []),
+    ...(layoutReady ? ['3_layout' as const] : []),
+  ];
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -475,6 +486,7 @@ export default function App() {
           onOpenPdfImport={() => setIsPdfImportOpen(true)}
           theme={theme}
           onToggleTheme={() => setTheme((value) => value === 'dark' ? 'light' : 'dark')}
+          completedSteps={completedCleanSteps}
         />
 
         {/* 階段主要工作視圖 */}
@@ -496,34 +508,32 @@ export default function App() {
             />
           ) : cleanStep === '2_stitch' ? (
             /* 階段二：空間拼湊與全案放樣圖 (點擊直接進入 MultiRoomStitcher 求解咬合) */
-            <div className="w-full h-full bg-[#0a0f0b] flex flex-col items-center justify-center p-6 text-center">
-              <div className="max-w-xl bg-[#121810] border border-cyan-500/40 rounded-3xl p-8 shadow-2xl space-y-5">
-                <div className="w-16 h-16 mx-auto rounded-2xl bg-cyan-500/10 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
+            <div className="survey-light-surface flex h-full w-full flex-col items-center justify-center p-5 text-center">
+              <div className="survey-card w-full max-w-xl rounded-3xl border p-6 shadow-xl sm:p-8">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[#3F5B63]/40 bg-[#3F5B63]/10 text-[#3F5B63]">
                   <Layers className="w-8 h-8" />
                 </div>
-                <div>
-                  <h3 className="text-xl font-bold text-white mb-2">階段二：全案空間拼湊與放樣尺寸圖</h3>
-                  <p className="text-xs text-neutral-400 leading-relaxed">
-                    已自動帶入您在階段一丈量的 {rooms.length} 個空間幾何尺寸。
-                    系統將依門洞拓撲 (Anchor Tags) 自動剛體約束旋轉，並<strong>自動咬合共壁扣除 15cm 壁厚</strong>，生成標準雙線實牆與全案放樣圖。
-                  </p>
+                <div className="mt-5">
+                  <div className="mb-2 text-xs font-bold tracking-[0.18em] text-[#B4503A]">現在只做一件事</div>
+                  <h3 className="survey-text text-xl font-bold">把 {rooms.length} 個空間拼成全案</h3>
+                  <p className="survey-muted mt-2 text-sm">開啟後確認門洞配對與共壁，完成才會點亮下一階段。</p>
                 </div>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                <div className="mt-6 flex flex-col items-center justify-center gap-3">
                   <button
                     onClick={() => setIsMultiRoomStitcherOpen(true)}
-                    className="w-full sm:w-auto px-6 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-sm shadow-lg shadow-cyan-950/50 flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#B4503A] px-6 py-3.5 text-sm font-bold text-white shadow-lg transition hover:bg-[#9b412f] active:scale-95 sm:w-auto"
                   >
                     <Layers className="w-4 h-4" />
-                    <span>開啟全案空間拼湊放樣求解器</span>
+                    <span>開始空間拼接</span>
                   </button>
                   <button
                     onClick={() => {
                       setCleanStep('3_layout');
                       setWorkflow('layout');
                     }}
-                    className="w-full sm:w-auto px-5 py-3 rounded-xl bg-[#1A2417] hover:bg-[#3F5B63]/40 border border-[#3F5B63]/50 text-neutral-300 font-semibold text-xs flex items-center justify-center gap-2 transition cursor-pointer"
+                    className="survey-muted flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold transition hover:text-[#B4503A]"
                   >
-                    <span>進入階段三 (平面配置)</span>
+                    <span>稍後再拼接，先看平面配置</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -534,11 +544,11 @@ export default function App() {
             <div className="w-full h-full relative">
               <div className="absolute left-3 top-3 z-20 flex max-w-[calc(100%-1.5rem)] items-start gap-2">
                 <button
-                  onClick={() => setIsLayoutToolsOpen((value) => !value)}
-                  className="flex items-center gap-2 rounded-xl bg-[#23301F] px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-[#3F5B63] active:scale-95"
+                  onClick={() => layoutReady ? setIsLayoutToolsOpen((value) => !value) : setIsAutoSpaceLayoutOpen(true)}
+                  className="flex items-center gap-2 rounded-xl bg-[#B4503A] px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-[#9b412f] active:scale-95"
                 >
-                  <Menu className="h-4 w-4" />
-                  配置工具
+                  {layoutReady ? <Menu className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                  {layoutReady ? '配置工具' : '第一步：產生配置'}
                 </button>
                 {isLayoutToolsOpen && <div className="w-56 rounded-2xl border border-[#3F5B63]/50 bg-[#121810]/95 p-2 shadow-2xl backdrop-blur-xl">
                   <button onClick={() => { setIsAutoSpaceLayoutOpen(true); setIsLayoutToolsOpen(false); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-bold text-[#F8F8F6] hover:bg-[#23301F]"><LayoutGrid className="h-4 w-4 text-[#E0A83C]" />自動產生配置</button>
