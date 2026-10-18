@@ -447,6 +447,22 @@ export default function App() {
           ) : (
             /* 階段三：平面配置、傢俱深化與圖面繪製 */
             <div className="w-full h-full relative">
+              <div className="absolute left-3 top-3 z-20 flex max-w-[calc(100%-1.5rem)] flex-wrap gap-2">
+                <button
+                  onClick={() => setIsAutoSpaceLayoutOpen(true)}
+                  className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg transition hover:bg-emerald-500 active:scale-95"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                  產生配置候選
+                </button>
+                <button
+                  onClick={() => setIsPersonalBlockLibraryOpen(true)}
+                  className="flex items-center gap-2 rounded-xl border border-[#3F5B63]/50 bg-[#121810]/90 px-4 py-2.5 text-xs font-bold text-[#F8F8F6] shadow-lg backdrop-blur-sm transition hover:bg-[#23301F] active:scale-95"
+                >
+                  <FolderPlus className="h-4 w-4" />
+                  家具／櫃體圖塊
+                </button>
+              </div>
               {activeMainTab === '3d_simulation' ? (
                 <ThreeDSceneView room={currentRoom} onNotify={showToast} onOpenCustomBlocks={() => setIsCustomBlockOpen(true)} />
               ) : (
