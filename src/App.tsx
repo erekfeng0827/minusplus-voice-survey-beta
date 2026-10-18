@@ -1,7 +1,7 @@
 // --- START OF FILE App.tsx (Minusplus 四向引導全景版) ---
 
 import React, { useState, useEffect } from 'react';
-import { RoomData, VoiceMemo, RoomMaterials, SunlightConfig } from './types';
+import { FurnitureItem, PersonalDetailBlockItem, PlacedBlockItem, RoomData, VoiceMemo, RoomMaterials, SunlightConfig } from './types';
 import { INITIAL_ROOMS } from './data/defaultProject';
 import { MasterFloorPlanView } from './components/MasterFloorPlanView';
 import { RealScene3DDeepLinkModal } from './components/RealScene3DDeepLinkModal';
@@ -194,6 +194,7 @@ export default function App() {
   const [isCompanyTitleBlockOpen, setIsCompanyTitleBlockOpen] = useState<boolean>(false);
   const [isDwgHabitsLearnerOpen, setIsDwgHabitsLearnerOpen] = useState<boolean>(false);
   const [isPersonalBlockLibraryOpen, setIsPersonalBlockLibraryOpen] = useState<boolean>(false);
+  const [draggedFurnitureBlock, setDraggedFurnitureBlock] = useState<PersonalDetailBlockItem | null>(null);
   const [isHatchPatternModalOpen, setIsHatchPatternModalOpen] = useState<boolean>(false);
   const [isBatchClassificationModalOpen, setIsBatchClassificationModalOpen] = useState<boolean>(false);
   const [isSearchGroundingOpen, setIsSearchGroundingOpen] = useState<boolean>(false);
@@ -236,6 +237,31 @@ export default function App() {
   const handleUpdateRoom = (updatedRoom: RoomData) => {
     const newRooms = rooms.map((r) => (r.id === updatedRoom.id ? updatedRoom : r));
     pushHistory(newRooms);
+  };
+
+  const handleInsertFurnitureBlock = (block: PersonalDetailBlockItem) => {
+    const x = Math.max(0, Math.round((currentRoom.width - block.widthCm) / 10) * 5);
+    const y = Math.max(0, Math.round((currentRoom.length - block.depthCm) / 10) * 5);
+    const placedId = `placed-${Date.now()}`;
+    const placed: PlacedBlockItem = {
+      id: placedId, blockId: block.id, name: block.name, category: block.category,
+      subCategory: block.subCategory, x, y, widthCm: block.widthCm, depthCm: block.depthCm,
+      heightCm: block.heightCm, elevationCm: block.elevationCm, cadLayer: block.cadLayer,
+      colorIndex: block.colorIndex, rotationDeg: 0, snappedTo: `房间中央 5cm 模数 (X:${x}, Y:${y})`,
+      tags: block.tags, placedAt: new Date().toISOString(),
+    };
+    const furniture: FurnitureItem | null = block.category === 'furniture' ? {
+      id: `f-${placedId}`, name: block.name,
+      category: /床/i.test(block.name) ? 'bed' : /衣櫃/i.test(block.name) ? 'wardrobe' : /桌|椅/i.test(block.name) ? 'desk_table' : 'cabinet',
+      x, y, width: block.widthCm, depth: block.depthCm, height: block.heightCm,
+      elevation: block.elevationCm, rotationY: 0, specNote: `来自图块库；${placed.snappedTo}`,
+    } : null;
+    handleUpdateRoom({
+      ...currentRoom,
+      placedBlocks: [...(currentRoom.placedBlocks || []), placed],
+      furniture: furniture ? [...(currentRoom.furniture || []), furniture] : currentRoom.furniture,
+    });
+    showToast(`已将「${block.name}」置入平面中央，可在画布选择后旋转、对齐或删除。`);
   };
 
   const handleStartFreshProject = (freshRooms: RoomData[], newName: string) => {
@@ -466,7 +492,7 @@ export default function App() {
               {activeMainTab === '3d_simulation' ? (
                 <ThreeDSceneView room={currentRoom} onNotify={showToast} onOpenCustomBlocks={() => setIsCustomBlockOpen(true)} />
               ) : (
-                <StakingCanvas2D room={currentRoom} activeViewMode={canvasViewMode} setActiveViewMode={setCanvasViewMode} onSelectVoiceMemo={setSelectedVoiceMemo} onUpdateRoom={handleUpdateRoom} onSwitchTo3D={() => setActiveMainTab('3d_simulation')} />
+                <StakingCanvas2D room={currentRoom} activeViewMode={canvasViewMode} setActiveViewMode={setCanvasViewMode} onSelectVoiceMemo={setSelectedVoiceMemo} onUpdateRoom={handleUpdateRoom} onSwitchTo3D={() => setActiveMainTab('3d_simulation')} draggedBlock={draggedFurnitureBlock} onDropBlock={() => setDraggedFurnitureBlock(null)} onDragCancel={() => setDraggedFurnitureBlock(null)} onNotify={showToast} />
               )}
             </div>
           )}
@@ -842,7 +868,7 @@ export default function App() {
       <ProjectCloudBackupModal isOpen={isCloudBackupOpen} onClose={() => setIsCloudBackupOpen(false)} rooms={rooms} onRestoreSnapshot={(restored) => { pushHistory(restored); }} onNotify={showToast} />
       <CompanyTitleBlockDesignerModal isOpen={isCompanyTitleBlockOpen} onClose={() => setIsCompanyTitleBlockOpen(false)} room={currentRoom} onSaveSettings={(cfg) => { showToast(`已更新公司圖框設定「${cfg.companyName}」！`); }} onNotify={showToast} />
       <DwgBatchHabitLearningModal isOpen={isDwgHabitsLearnerOpen} onClose={() => setIsDwgHabitsLearnerOpen(false)} room={currentRoom} onApplyProfileToSystem={(prof) => { showToast(`🏆 已套用個人專用規格表「${prof.profileName}」為全域出圖範本！`); }} onNotify={showToast} />
-      <PersonalDetailBlockLibraryModal isOpen={isPersonalBlockLibraryOpen} onClose={() => setIsPersonalBlockLibraryOpen(false)} room={currentRoom} onInsertBlockToRoom={(blk) => { showToast(`已將「${blk.name}」置入目前空間放樣畫布！`); }} onNotify={showToast} />
+      <PersonalDetailBlockLibraryModal isOpen={isPersonalBlockLibraryOpen} onClose={() => { setIsPersonalBlockLibraryOpen(false); setDraggedFurnitureBlock(null); }} room={currentRoom} onInsertBlockToRoom={handleInsertFurnitureBlock} onNotify={showToast} onDragBlockStart={setDraggedFurnitureBlock} onDragBlockEnd={() => setDraggedFurnitureBlock(null)} />
       <SearchGroundingModal isOpen={isSearchGroundingOpen} onClose={() => setIsSearchGroundingOpen(false)} room={currentRoom} onApplyAnnotation={(note) => { const updated = { ...currentRoom, notes: [...(currentRoom.notes || []), note], }; handleUpdateRoom(updated); }} onNotify={showToast} />
       <FirebaseAuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} room={currentRoom} rooms={rooms} onNotify={showToast} />
       <HatchPatternPreviewModal isOpen={isHatchPatternModalOpen} onClose={() => setIsHatchPatternModalOpen(false)} room={currentRoom} onApplyHatchToRoom={(pat, scale, angle, color) => { const updated = { ...currentRoom, notes: [ ...(currentRoom.notes || []), `[剖面填滿] ${pat.name} (比例 ${scale}x, 角度 ${angle}°, AutoCAD 顏色 ${color})`, ], }; handleUpdateRoom(updated); showToast(`已成功套用「${pat.name}」填滿樣式至 ${currentRoom.roomName}`); }} onNotify={showToast} />
@@ -891,7 +917,14 @@ export default function App() {
         onApplyOptimizedLayout={(roomId, newFurniture) => {
           const target = rooms.find((item) => item.id === roomId);
           if (!target) return;
-          handleUpdateRoom({ ...target, furniture: newFurniture });
+          const retainedBlocks = (target.placedBlocks || []).filter((block) => !block.id.startsWith('auto-layout:'));
+          const layoutBlocks: PlacedBlockItem[] = newFurniture.map((item) => ({
+            id: `auto-layout:${item.id}`, blockId: item.id, name: item.name, category: 'furniture',
+            subCategory: item.category, x: item.x, y: item.y, widthCm: item.width, depthCm: item.depth,
+            heightCm: item.height, elevationCm: item.elevation, cadLayer: 'A-FURN-AUTO', colorIndex: 3,
+            rotationDeg: item.rotationY ?? 0, snappedTo: '2D 家具配置保存', placedAt: new Date().toISOString(),
+          }));
+          handleUpdateRoom({ ...target, furniture: newFurniture, placedBlocks: [...retainedBlocks, ...layoutBlocks] });
         }}
         onNotify={showToast}
       />
@@ -916,8 +949,10 @@ export default function App() {
           pushHistory(newRooms);
           if (newRooms[0]) setSelectedRoomId(newRooms[0].id);
           if (pName) setProjectName(pName);
-          setCleanStep('1_survey');
-          showToast(`✓ 已成功載入「${pName || '建商圖面'}」${newRooms.length} 個空間！`);
+          setCleanStep('3_layout');
+          setWorkflow('layout');
+          setActiveMainTab('2d_staking');
+          showToast(`已载入「${pName || '建商图面'}」${newRooms.length} 个空间，并进入 2D 平面配置。`);
         }}
         onNotify={showToast}
       />

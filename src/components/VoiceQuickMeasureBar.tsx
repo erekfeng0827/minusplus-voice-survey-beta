@@ -10,7 +10,8 @@ interface VoiceQuickMeasureBarProps {
 
 interface ParsedDraft {
   source: string;
-  room: RoomData;
+  changes: Partial<Pick<RoomData, 'roomName' | 'width' | 'length' | 'height'>>;
+  addedColumns: Column[];
   summary: string[];
   warnings: string[];
 }
@@ -26,6 +27,7 @@ export const VoiceQuickMeasureBar: React.FC<VoiceQuickMeasureBarProps> = ({ room
   const [manualText, setManualText] = useState('');
   const [speechSupported, setSpeechSupported] = useState(false);
   const [draft, setDraft] = useState<ParsedDraft | null>(null);
+  const [recognitionError, setRecognitionError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
   const roomRef = useRef(room);
 
@@ -51,6 +53,8 @@ export const VoiceQuickMeasureBar: React.FC<VoiceQuickMeasureBarProps> = ({ room
     const columns: Column[] = [...(currentRoom.columns || [])];
     const summary: string[] = [];
     const warnings: string[] = [];
+    const changes: ParsedDraft['changes'] = {};
+    const addedColumns: Column[] = [];
 
     const dimensionPattern = '(\\d+(?:\\.\\d+)?)\\s*(米|公尺|m|cm|公分)?';
     const lengthMatch = text.match(new RegExp(`(?:總長|進深|深度|長度|長)\\s*(?:為|是|約)?\\s*${dimensionPattern}`, 'i'));
@@ -59,14 +63,17 @@ export const VoiceQuickMeasureBar: React.FC<VoiceQuickMeasureBarProps> = ({ room
 
     if (lengthMatch) {
       length = Math.max(30, toCentimeters(lengthMatch[1], lengthMatch[2]));
+      changes.length = length;
       summary.push(`總長 ${length} cm`);
     }
     if (widthMatch) {
       width = Math.max(30, toCentimeters(widthMatch[1], widthMatch[2]));
+      changes.width = width;
       summary.push(`總寬 ${width} cm`);
     }
     if (heightMatch) {
       height = Math.max(100, toCentimeters(heightMatch[1], heightMatch[2]));
+      changes.height = height;
       summary.push(`RC 淨高 ${height} cm`);
     }
 
@@ -74,6 +81,7 @@ export const VoiceQuickMeasureBar: React.FC<VoiceQuickMeasureBarProps> = ({ room
     const matchedName = roomNames.find((name) => text.includes(name));
     if (matchedName) {
       roomName = matchedName === '主臥' ? '主臥房' : matchedName;
+      changes.roomName = roomName;
       summary.push(`空間名稱：${roomName}`);
     }
 
@@ -82,7 +90,7 @@ export const VoiceQuickMeasureBar: React.FC<VoiceQuickMeasureBarProps> = ({ room
         warnings.push(`${label}已有柱體，將保留原資料`);
         return;
       }
-      columns.push({
+      const newColumn: Column = {
         id: `col_${Date.now()}_${corner}`,
         name: `C${columns.length + 1} ${label}角柱`,
         width: size,
@@ -93,7 +101,9 @@ export const VoiceQuickMeasureBar: React.FC<VoiceQuickMeasureBarProps> = ({ room
         offset: 0,
         x: corner.endsWith('left') ? 0 : Math.max(0, width - size),
         y: corner.startsWith('top') ? 0 : Math.max(0, length - size),
-      });
+      };
+      columns.push(newColumn);
+      addedColumns.push(newColumn);
       summary.push(`${label}角柱 ${size}×${size} cm`);
     };
 
@@ -118,7 +128,8 @@ export const VoiceQuickMeasureBar: React.FC<VoiceQuickMeasureBarProps> = ({ room
 
     return {
       source: raw,
-      room: { ...currentRoom, roomName, width, length, height, columns },
+      changes,
+      addedColumns,
       summary,
       warnings,
     };
@@ -128,6 +139,7 @@ export const VoiceQuickMeasureBar: React.FC<VoiceQuickMeasureBarProps> = ({ room
     const parsed = parseVoiceText(text);
     if (!parsed) return;
     setDraft(parsed);
+    setRecognitionError(null);
     setManualText('');
     onNotify(parsed.summary.length ? '辨識完成，請確認摘要後再寫入。' : '未辨識到可寫入資料，請補充總長與總寬。');
   };
@@ -151,9 +163,15 @@ export const VoiceQuickMeasureBar: React.FC<VoiceQuickMeasureBarProps> = ({ room
       setTranscript(currentText);
       if (isFinal) prepareDraft(currentText);
     };
-    recognition.onerror = () => {
+    recognition.onerror = (event: { error?: string }) => {
       setIsListening(false);
-      onNotify('語音辨識中斷，請重試或改用文字輸入。');
+      const message = event.error === 'not-allowed'
+        ? '麥克風權限未開啟。請允許權限後重試，或直接使用文字輸入。'
+        : event.error === 'no-speech'
+          ? '沒有聽到語音。請靠近麥克風重試，或改用文字輸入。'
+          : '語音辨識中斷。可重新口述，或改用文字輸入。';
+      setRecognitionError(message);
+      onNotify(message);
     };
     recognition.onend = () => setIsListening(false);
     recognitionRef.current = recognition;
@@ -169,13 +187,23 @@ export const VoiceQuickMeasureBar: React.FC<VoiceQuickMeasureBarProps> = ({ room
     else {
       setTranscript('');
       setDraft(null);
+      setRecognitionError(null);
       try { recognitionRef.current?.start(); } catch { onNotify('麥克風尚未就緒，請稍後再試。'); }
     }
   };
 
   const confirmDraft = () => {
     if (!draft || draft.summary.length === 0) return;
-    onUpdateRoom(draft.room);
+    const latestRoom = roomRef.current;
+    const existingColumns = latestRoom.columns || [];
+    onUpdateRoom({
+      ...latestRoom,
+      ...draft.changes,
+      columns: [
+        ...existingColumns,
+        ...draft.addedColumns.filter((added) => !existingColumns.some((existing) => existing.corner === added.corner)),
+      ],
+    });
     onNotify(`已確認寫入：${draft.summary.join('、')}`);
     setDraft(null);
     setTranscript('');
@@ -200,6 +228,12 @@ export const VoiceQuickMeasureBar: React.FC<VoiceQuickMeasureBarProps> = ({ room
 
       {!draft && (
         <div className="space-y-3">
+          {recognitionError && (
+            <div className="flex min-w-0 flex-col gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-500 sm:flex-row sm:items-center sm:justify-between" role="alert">
+              <span className="flex min-w-0 items-start gap-2"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span className="break-words">{recognitionError}</span></span>
+              <button type="button" onClick={() => { setRecognitionError(null); setManualText(''); }} className="shrink-0 rounded-lg border border-amber-500/40 px-3 py-1.5 font-bold">改用文字輸入</button>
+            </div>
+          )}
           <button onClick={toggleListening} className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold text-white transition active:scale-[.98] ${isListening ? 'bg-red-600' : 'bg-emerald-600 hover:bg-emerald-500'}`}>
             {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
             {isListening ? '結束口述' : '開始口述'}
