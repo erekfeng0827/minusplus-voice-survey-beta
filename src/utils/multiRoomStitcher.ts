@@ -1228,9 +1228,15 @@ export function calculateStitchedFloorPlan(
   const totalLength = Math.round(maxY - minY);
   const totalAreaM2 = Number((totalAreaCm2 / 10000).toFixed(2));
   const totalAreaPing = Number((totalAreaM2 * 0.3025).toFixed(2));
+  const totalCoincidentWallLength = Math.round(placements.reduce((sum, placement) => sum + placement.sharedWalls.reduce((wallSum, wall) => wallSum + wall.overlapLength, 0), 0) / 2);
+  const zeroCollisionVerified = placements.every((placement, index) => placements.slice(index + 1).every((other) => {
+    const overlapX = Math.min(placement.x + placement.effectiveWidth, other.x + other.effectiveWidth) - Math.max(placement.x, other.x);
+    const overlapY = Math.min(placement.y + placement.effectiveLength, other.y + other.effectiveLength) - Math.max(placement.y, other.y);
+    return !(overlapX > 1 && overlapY > 1);
+  }));
 
   auditNotes.unshift(
-    `全室拓撲拼接完成！總計拼裝 ${placements.length} 個空間、配對 ${pairedDoorsCount} 組門洞錨點，全室總實坪 ${totalAreaPing} 坪 (${totalAreaM2} m²)`
+    `全室拓撲拼接完成：${placements.length} 個空間、${pairedDoorsCount} 組門洞錨點、共壁 ${totalCoincidentWallLength}cm、碰撞檢查${zeroCollisionVerified ? '通过' : '未通过'}。總實坪 ${totalAreaPing} 坪 (${totalAreaM2} m²)`
   );
 
   return {
@@ -1243,8 +1249,8 @@ export function calculateStitchedFloorPlan(
     sharedWallCount: pairedDoorsCount,
     auditNotes,
     stitchMethod: 'door_anchored',
-    zeroCollisionVerified: true,
-    totalCoincidentWallLength: pairedDoorsCount * 90,
+    zeroCollisionVerified,
+    totalCoincidentWallLength,
   };
 }
 
