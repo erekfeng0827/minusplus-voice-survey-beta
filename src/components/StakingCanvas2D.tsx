@@ -535,13 +535,19 @@ export const StakingCanvas2D: React.FC<StakingCanvas2DProps> = ({
     setTimeout(() => setBeamToast(null), 2500);
   };
 
-  const handleEditPlacedBlock = (field: 'x' | 'y' | 'widthCm' | 'depthCm', rawValue: number) => {
+  const handleEditPlacedBlock = (
+    field: 'x' | 'y' | 'widthCm' | 'depthCm' | 'heightCm' | 'elevationCm' | 'rotationDeg',
+    rawValue: number
+  ) => {
     if (!selectedPlacedBlock || !Number.isFinite(rawValue)) return;
     const updated = (room.placedBlocks || []).map((block) => {
       if (block.id !== selectedPlacedBlock.id) return block;
       const next = { ...block, [field]: Math.max(0, Math.round(rawValue)) };
       next.widthCm = Math.max(5, Math.min(room.width, next.widthCm));
       next.depthCm = Math.max(5, Math.min(room.length, next.depthCm));
+      next.heightCm = Math.max(1, next.heightCm ?? 1);
+      next.elevationCm = Math.max(0, next.elevationCm ?? 0);
+      next.rotationDeg = ((next.rotationDeg ?? 0) % 360 + 360) % 360;
       next.x = Math.max(0, Math.min(room.width - next.widthCm, next.x));
       next.y = Math.max(0, Math.min(room.length - next.depthCm, next.y));
       return next;
@@ -3195,7 +3201,7 @@ export const StakingCanvas2D: React.FC<StakingCanvas2DProps> = ({
         {selectedPlacedBlock && (
           <div className="absolute bottom-4 right-4 z-30 w-[min(92vw,320px)] rounded-2xl border border-[#3F5B63]/50 bg-[#121810]/95 p-3 text-[#F8F8F6] shadow-2xl backdrop-blur-xl">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <div className="min-w-0"><div className="truncate text-sm font-bold">{selectedPlacedBlock.name}</div><div className="text-[10px] text-[#9ca398]">直接修改位置與尺寸（cm）</div></div>
+              <div className="min-w-0"><div className="truncate text-sm font-bold">{selectedPlacedBlock.name}</div><div className="text-[10px] text-[#9ca398]">點數字直接修改，平面與 3D 同步</div></div>
               <button onClick={() => setSelectedPlacedBlockId(null)} className="rounded-lg p-1 text-[#9ca398] hover:bg-white/10 hover:text-white" aria-label="關閉編輯"><X className="h-4 w-4" /></button>
             </div>
             <div className="grid grid-cols-4 gap-2">
@@ -3204,8 +3210,11 @@ export const StakingCanvas2D: React.FC<StakingCanvas2DProps> = ({
                 ['y', 'Y', selectedPlacedBlock.y],
                 ['widthCm', '寬', selectedPlacedBlock.widthCm],
                 ['depthCm', '深', selectedPlacedBlock.depthCm],
+                ['heightCm', '高', selectedPlacedBlock.heightCm ?? 1],
+                ['elevationCm', '離地', selectedPlacedBlock.elevationCm ?? 0],
+                ['rotationDeg', '角度°', selectedPlacedBlock.rotationDeg ?? 0],
               ] as const).map(([field, label, value]) => (
-                <label key={field} className="text-[10px] text-[#b9beb5]">{label}<input type="number" min="0" step="5" value={value} onChange={(event) => handleEditPlacedBlock(field, Number(event.target.value))} className="mt-1 w-full rounded-lg border border-[#3F5B63]/50 bg-[#0a0f0b] px-2 py-2 text-center font-mono text-xs text-white outline-none focus:border-[#E0A83C]" /></label>
+                <label key={field} className="text-[10px] text-[#b9beb5]">{label}<input type="number" min="0" step={field === 'rotationDeg' ? 15 : 5} value={value} onChange={(event) => handleEditPlacedBlock(field, Number(event.target.value))} className="mt-1 w-full rounded-lg border border-[#3F5B63]/50 bg-[#0a0f0b] px-2 py-2 text-center font-mono text-xs text-white outline-none focus:border-[#E0A83C]" /></label>
               ))}
             </div>
           </div>

@@ -504,7 +504,7 @@ export default function App() {
         />
 
         {/* 階段主要工作視圖 */}
-        <div className="flex-1 relative overflow-hidden">
+        <div className="relative flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain [touch-action:pan-y] [-webkit-overflow-scrolling:touch]">
           {cleanStep === '1_survey' ? (
             /* 階段一：純淨現場丈量專用工作區 (不擠壓其他雜亂工具) */
             <CleanMeasureWorkspace
