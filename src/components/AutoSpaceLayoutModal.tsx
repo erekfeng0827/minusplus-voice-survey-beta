@@ -15,7 +15,7 @@ import {
   RefreshCw,
   Ruler
 } from 'lucide-react';
-import { DEFAULT_FURNITURE_OPTIMIZED } from '../data/defaultFurniture';
+import { FURNITURE_TEMPLATES, LayoutStyle, RoomKind, STYLE_RULES } from '../data/furnitureTemplates';
 
 interface AutoSpaceLayoutModalProps {
   isOpen: boolean;
@@ -34,7 +34,7 @@ export const AutoSpaceLayoutModal: React.FC<AutoSpaceLayoutModalProps> = ({
   onApplyOptimizedLayout,
   onNotify,
 }) => {
-  const [selectedStyle, setSelectedStyle] = useState<'ergonomic' | 'spacious' | 'storage_max'>('ergonomic');
+  const [selectedStyle, setSelectedStyle] = useState<LayoutStyle>('ergonomic');
   const [snapTo5xMultiples, setSnapTo5xMultiples] = useState<boolean>(true);
   const [reserveBeamClearance, setReserveBeamClearance] = useState<boolean>(true);
   const [minWalkwayWidth, setMinWalkwayWidth] = useState<number>(90); // 90cm
@@ -46,173 +46,61 @@ export const AutoSpaceLayoutModal: React.FC<AutoSpaceLayoutModalProps> = ({
   const generateRecommendedFurniture = (): FurnitureItem[] => {
     const isLiving = room.id.includes('living') || room.roomName.includes('客廳');
     const isMaster = room.id.includes('master') || room.roomName.includes('主臥');
-    const isSon = room.id.includes('son') || room.roomName.includes('兒子');
-    const isDaughter = room.id.includes('daughter') || room.roomName.includes('女兒');
-
     const snap = (v: number) => (snapTo5xMultiples ? Math.round(v / 5) * 5 : v);
-
-    if (isLiving) {
-      return [
-        {
-          id: 'furn_sofa_main',
-          name: '三人座低背沙發',
-          category: 'desk_table',
-          width: snap(240),
-          depth: snap(95),
-          height: 85,
-          elevation: 0,
-          x: snap(35),
-          y: snap(420),
-          colorHex: '#3F5B63',
-          specNote: '三人座布面沙發 (5倍數吸附)',
-        },
-        {
-          id: 'furn_tv_cabinet',
-          name: '懸空電視收納櫃 (下離地20cm)',
-          category: 'cabinet',
-          width: snap(280),
-          depth: snap(40),
-          height: 45,
-          elevation: 20,
-          x: snap(15),
-          y: snap(120),
-          colorHex: '#E0A83C',
-          specNote: '懸空木作電視低櫃 (離地20cm)',
-        },
-        {
-          id: 'furn_coffee_table',
-          name: '薄型實木茶几 (動線保留90cm)',
-          category: 'desk_table',
-          width: snap(120),
-          depth: snap(60),
-          height: 40,
-          elevation: 0,
-          x: snap(95),
-          y: snap(320),
-          colorHex: '#DDD7CE',
-          specNote: '客廳茶几，前後通道保留90cm',
-        },
-        {
-          id: 'furn_shoe_cabinet',
-          name: '玄關懸空鞋櫃與穿鞋椅',
-          category: 'cabinet',
-          width: snap(150),
-          depth: snap(40),
-          height: 220,
-          elevation: 0,
-          x: snap(15),
-          y: snap(680),
-          colorHex: '#2C3E2B',
-          specNote: '高身玄關鞋櫃組',
-        },
-      ];
-    } else if (isMaster) {
-      return [
-        {
-          id: 'furn_bed_queen',
-          name: '標準雙人床 (避開樑底FL+218)',
-          category: 'bed',
-          width: snap(180),
-          depth: snap(200),
-          height: 95,
-          elevation: 0,
-          x: snap(60),
-          y: snap(150),
-          colorHex: '#2C3E2B',
-          specNote: '6尺加大雙人床架，避開結構大梁',
-        },
-        {
-          id: 'furn_nightstand_l',
-          name: '左側床頭櫃',
-          category: 'cabinet',
-          width: snap(50),
-          depth: snap(45),
-          height: 50,
-          elevation: 0,
-          x: snap(5),
-          y: snap(150),
-          colorHex: '#DDD7CE',
-          specNote: '左側床頭小几',
-        },
-        {
-          id: 'furn_nightstand_r',
-          name: '右側床頭櫃',
-          category: 'cabinet',
-          width: snap(50),
-          depth: snap(45),
-          height: 50,
-          elevation: 0,
-          x: snap(245),
-          y: snap(150),
-          colorHex: '#DDD7CE',
-          specNote: '右側床頭小几',
-        },
-        {
-          id: 'furn_wardrobe_master',
-          name: '全高收納衣櫃組 (進深60cm)',
-          category: 'wardrobe',
-          width: snap(240),
-          depth: snap(60),
-          height: 240,
-          elevation: 0,
-          x: snap(30),
-          y: snap(10),
-          colorHex: '#3F5B63',
-          specNote: '主臥平開門衣櫃組，進深60cm',
-        },
-      ];
-    } else {
-      // 次臥房 (兒子房 / 女兒房)
-      return [
-        {
-          id: `furn_bed_${room.id}`,
-          name: '單人加大床架 (靠牆配置)',
-          category: 'bed',
-          width: snap(120),
-          depth: snap(200),
-          height: 90,
-          elevation: 0,
-          x: snap(15),
-          y: snap(20),
-          colorHex: '#2C3E2B',
-          specNote: '單人床靠側牆，確保動線暢通',
-        },
-        {
-          id: `furn_desk_${room.id}`,
-          name: '靠窗採光工作書桌',
-          category: 'desk_table',
-          width: snap(140),
-          depth: snap(60),
-          height: 75,
-          elevation: 0,
-          x: snap(15),
-          y: snap(Math.max(room.length - 80, 50)),
-          colorHex: '#E0A83C',
-          specNote: '採光面閱讀書桌',
-        },
-        {
-          id: `furn_wardrobe_${room.id}`,
-          name: '高身單門衣櫃 (門扇迴轉避開床身)',
-          category: 'wardrobe',
-          width: snap(100),
-          depth: snap(60),
-          height: 220,
-          elevation: 0,
-          x: snap(Math.max(room.width - 115, 10)),
-          y: snap(20),
-          colorHex: '#3F5B63',
-          specNote: '單門收納高櫃',
-        },
-      ];
-    }
+    const kind: RoomKind = isLiving ? 'living' : isMaster ? 'master' : 'bedroom';
+    const rule = STYLE_RULES[selectedStyle];
+    return FURNITURE_TEMPLATES[kind].map((template, index) => {
+      const width = snap(template.width * (template.category === 'wardrobe' ? rule.sizeFactor : 1));
+      const depth = snap(template.depth);
+      const edge = snap(rule.edge);
+      const positions = {
+        top: { x: edge, y: edge }, bottom: { x: edge, y: room.length - depth - edge },
+        left: { x: edge, y: edge + index * (depth + minWalkwayWidth) },
+        right: { x: room.width - width - edge, y: edge },
+        center: { x: (room.width - width) / 2, y: (room.length - depth) / 2 },
+      };
+      const pos = positions[template.wall];
+      const beamLimitedHeight = reserveBeamClearance && template.height >= room.beamHeight
+        ? Math.max(0, room.beamHeight - 5 - (template.elevation ?? 0)) : template.height;
+      return {
+        id: `auto_${room.id}_${template.key}`, name: template.name, category: template.category,
+        width, depth, height: snap(beamLimitedHeight), elevation: template.elevation ?? 0,
+        x: snap(pos.x), y: snap(pos.y), colorHex: template.colorHex,
+        specNote: `${template.note}；策略：${rule.label}${reserveBeamClearance ? '；已套用梁下 5cm 預留' : ''}`,
+      };
+    });
   };
 
   const previewItems = generateRecommendedFurniture();
+  const geometryIssues: string[] = [];
+  previewItems.forEach((item) => {
+    if (item.x < 0 || item.y < 0 || item.x + item.width > room.width || item.y + item.depth > room.length) {
+      geometryIssues.push(`${item.name} 超出房間邊界`);
+    }
+    if (reserveBeamClearance && item.elevation + item.height > room.beamHeight - 5) {
+      geometryIssues.push(`${item.name} 未達梁下 5cm 預留`);
+    }
+  });
+  for (let i = 0; i < previewItems.length; i += 1) {
+    for (let j = i + 1; j < previewItems.length; j += 1) {
+      const a = previewItems[i]; const b = previewItems[j];
+      const overlapX = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+      const overlapY = Math.min(a.y + a.depth, b.y + b.depth) - Math.max(a.y, b.y);
+      if (overlapX > 0 && overlapY > 0) geometryIssues.push(`${a.name} 與 ${b.name} 矩形碰撞`);
+      else {
+        const gapX = Math.max(b.x - (a.x + a.width), a.x - (b.x + b.width), 0);
+        const gapY = Math.max(b.y - (a.y + a.depth), a.y - (b.y + b.depth), 0);
+        const clearance = overlapX > 0 ? gapY : overlapY > 0 ? gapX : Math.hypot(gapX, gapY);
+        if (clearance > 0 && clearance < minWalkwayWidth) geometryIssues.push(`${a.name} 與 ${b.name} 間距 ${Math.round(clearance)}cm，小於 ${minWalkwayWidth}cm`);
+      }
+    }
+  }
+  const reviewRequired = geometryIssues.length > 0;
 
   const handleApplyLayout = () => {
     onApplyOptimizedLayout(room.id, previewItems);
     setAppliedSuccess(true);
-    onNotify?.(`✓ 已自動完成「${room.roomName}」家具人因動線配置與 5 倍數幾何吸附！`);
+    onNotify?.(`已套用「${room.roomName}」配置候選；請由設計師複核後再用於後續設計。`);
     setTimeout(() => {
       setAppliedSuccess(false);
       onClose();
@@ -236,7 +124,7 @@ export const AutoSpaceLayoutModal: React.FC<AutoSpaceLayoutModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-[#DDD7CE]/70">
-                依據現場實測長寬 ({room.width}×{room.length}cm) 與真實梁高 (FL+{room.beamHeight})，智慧計算最佳動線與家具定位
+                依據目前房間長寬 ({room.width}×{room.length}cm) 與梁高 (FL+{room.beamHeight})，產生可調整的配置候選
               </p>
             </div>
           </div>
@@ -350,9 +238,13 @@ export const AutoSpaceLayoutModal: React.FC<AutoSpaceLayoutModalProps> = ({
                 <Sparkles className="w-4 h-4 text-amber-400" />
                 <span>自動生成之家具與空間組態預覽（共 {previewItems.length} 件圖元）：</span>
               </span>
-              <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> 碰撞檢驗 0 衝突 · PASS
+                <span className={`text-[10px] font-mono flex items-center gap-1 ${reviewRequired ? 'text-amber-300' : 'text-emerald-400'}`}>
+                {reviewRequired ? <AlertCircle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                {reviewRequired ? `需設計師複核 · ${geometryIssues.length} 項` : '配置候選 · 未檢出矩形衝突'}
               </span>
+            </div>
+            <div className="text-[10px] text-[#DDD7CE]/70">
+              {reviewRequired ? geometryIssues.map((issue) => <div key={issue}>• {issue}</div>) : `候選依 ${selectedStyle} 策略、最低通道 ${minWalkwayWidth}cm 與梁避讓設定產生；仍需設計師確認門窗、使用情境及現場條件。`}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -410,7 +302,7 @@ export const AutoSpaceLayoutModal: React.FC<AutoSpaceLayoutModalProps> = ({
               ) : (
                 <>
                   <Zap className="w-4 h-4" />
-                  <span>一鍵套用自動排版配置</span>
+                  <span>套用配置候選（非施工圖）</span>
                 </>
               )}
             </button>

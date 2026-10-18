@@ -1,16 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { RoomData, Column } from '../types';
-import {
-  Mic,
-  MicOff,
-  Sparkles,
-  CheckCircle2,
-  AlertCircle,
-  CornerDownLeft,
-  Volume2,
-  Building,
-  Ruler
-} from 'lucide-react';
+import { AlertCircle, Check, Mic, MicOff, RotateCcw } from 'lucide-react';
 
 interface VoiceQuickMeasureBarProps {
   room: RoomData;
@@ -18,324 +8,233 @@ interface VoiceQuickMeasureBarProps {
   onNotify: (msg: string) => void;
 }
 
-export const VoiceQuickMeasureBar: React.FC<VoiceQuickMeasureBarProps> = ({
-  room,
-  onUpdateRoom,
-  onNotify,
-}) => {
-  const [isListening, setIsListening] = useState<boolean>(false);
-  const [transcript, setTranscript] = useState<string>('');
-  const [manualText, setManualText] = useState<string>('');
-  const [speechSupported, setSpeechSupported] = useState<boolean>(false);
-  const [lastParsedFeedback, setLastParsedFeedback] = useState<string | null>(null);
+interface ParsedDraft {
+  source: string;
+  room: RoomData;
+  summary: string[];
+  warnings: string[];
+}
 
+const toCentimeters = (value: string, unit?: string) => {
+  const parsed = Number.parseFloat(value);
+  return unit && /^(米|公尺|m)$/i.test(unit) ? Math.round(parsed * 100) : parsed < 20 ? Math.round(parsed * 100) : Math.round(parsed);
+};
+
+export const VoiceQuickMeasureBar: React.FC<VoiceQuickMeasureBarProps> = ({ room, onUpdateRoom, onNotify }) => {
+  const [isListening, setIsListening] = useState(false);
+  const [transcript, setTranscript] = useState('');
+  const [manualText, setManualText] = useState('');
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [draft, setDraft] = useState<ParsedDraft | null>(null);
   const recognitionRef = useRef<any>(null);
+  const roomRef = useRef(room);
 
-  // 初始化 Web Speech API
   useEffect(() => {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    roomRef.current = room;
+  }, [room]);
 
-    if (SpeechRecognition) {
-      setSpeechSupported(true);
-      try {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.interimResults = true;
-        recognition.lang = 'zh-TW';
+  useEffect(() => {
+    setDraft(null);
+    setTranscript('');
+  }, [room.id]);
 
-        recognition.onstart = () => {
-          setIsListening(true);
-        };
+  const parseVoiceText = (textInput: string): ParsedDraft | null => {
+    const raw = textInput.trim();
+    if (!raw) return null;
 
-        recognition.onresult = (event: any) => {
-          let currentText = '';
-          for (let i = 0; i < event.results.length; i++) {
-            currentText += event.results[i][0].transcript;
-          }
-          setTranscript(currentText);
-          if (event.results[0].isFinal) {
-            parseAndApplyVoiceText(currentText);
-          }
-        };
+    const currentRoom = roomRef.current;
+    const text = raw.replace(/[，,。、；;！!？?]/g, ' ').replace(/\s+/g, ' ');
+    let width = currentRoom.width;
+    let length = currentRoom.length;
+    let height = currentRoom.height;
+    let roomName = currentRoom.roomName;
+    const columns: Column[] = [...(currentRoom.columns || [])];
+    const summary: string[] = [];
+    const warnings: string[] = [];
 
-        recognition.onerror = (err: any) => {
-          console.warn('Speech recognition error:', err);
-          setIsListening(false);
-        };
+    const dimensionPattern = '(\\d+(?:\\.\\d+)?)\\s*(米|公尺|m|cm|公分)?';
+    const lengthMatch = text.match(new RegExp(`(?:總長|進深|深度|長度|長)\\s*(?:為|是|約)?\\s*${dimensionPattern}`, 'i'));
+    const widthMatch = text.match(new RegExp(`(?:總寬|面寬|開間|寬度|寬)\\s*(?:為|是|約)?\\s*${dimensionPattern}`, 'i'));
+    const heightMatch = text.match(new RegExp(`(?:RC|樓高|淨高|高度|高)\\s*(?:為|是|約)?\\s*${dimensionPattern}`, 'i'));
 
-        recognition.onend = () => {
-          setIsListening(false);
-        };
+    if (lengthMatch) {
+      length = Math.max(30, toCentimeters(lengthMatch[1], lengthMatch[2]));
+      summary.push(`總長 ${length} cm`);
+    }
+    if (widthMatch) {
+      width = Math.max(30, toCentimeters(widthMatch[1], widthMatch[2]));
+      summary.push(`總寬 ${width} cm`);
+    }
+    if (heightMatch) {
+      height = Math.max(100, toCentimeters(heightMatch[1], heightMatch[2]));
+      summary.push(`RC 淨高 ${height} cm`);
+    }
 
-        recognitionRef.current = recognition;
-      } catch (e) {
-        console.error('Speech recognition init error:', e);
+    const roomNames = ['客廳', '主臥房', '主臥', '次臥', '臥室', '玄關', '書房', '餐廳', '廚房', '陽台', '更衣室', '衛浴'];
+    const matchedName = roomNames.find((name) => text.includes(name));
+    if (matchedName) {
+      roomName = matchedName === '主臥' ? '主臥房' : matchedName;
+      summary.push(`空間名稱：${roomName}`);
+    }
+
+    const addColumn = (corner: NonNullable<Column['corner']>, label: string, size = 50) => {
+      if (columns.some((column) => column.corner === corner)) {
+        warnings.push(`${label}已有柱體，將保留原資料`);
+        return;
+      }
+      columns.push({
+        id: `col_${Date.now()}_${corner}`,
+        name: `C${columns.length + 1} ${label}角柱`,
+        width: size,
+        depth: size,
+        positionType: 'corner',
+        corner,
+        wall: corner.startsWith('top') ? 'north' : 'south',
+        offset: 0,
+        x: corner.endsWith('left') ? 0 : Math.max(0, width - size),
+        y: corner.startsWith('top') ? 0 : Math.max(0, length - size),
+      });
+      summary.push(`${label}角柱 ${size}×${size} cm`);
+    };
+
+    if (text.includes('四角') || text.includes('四個角')) {
+      addColumn('top-left', '左上');
+      addColumn('top-right', '右上');
+      addColumn('bottom-left', '左下');
+      addColumn('bottom-right', '右下');
+    } else {
+      const corners: Array<[string, NonNullable<Column['corner']>]> = [
+        ['左上|西北', 'top-left'], ['右上|東北', 'top-right'], ['左下|西南', 'bottom-left'], ['右下|東南', 'bottom-right'],
+      ];
+      for (const [words, corner] of corners) {
+        const cornerMatch = text.match(new RegExp(`(${words})[^0-9]*(?:柱子?|放柱)[^0-9]*(\\d{2,3})?`));
+        if (cornerMatch) addColumn(corner, cornerMatch[1], cornerMatch[2] ? Number(cornerMatch[2]) : 50);
       }
     }
+
+    if (!lengthMatch) warnings.push('缺少總長，本次不會變更總長');
+    if (!widthMatch) warnings.push('缺少總寬，本次不會變更總寬');
+    if (summary.length === 0) warnings.push('沒有辨識到可寫入的尺寸、空間名稱或柱位');
+
+    return {
+      source: raw,
+      room: { ...currentRoom, roomName, width, length, height, columns },
+      summary,
+      warnings,
+    };
+  };
+
+  const prepareDraft = (text: string) => {
+    const parsed = parseVoiceText(text);
+    if (!parsed) return;
+    setDraft(parsed);
+    setManualText('');
+    onNotify(parsed.summary.length ? '辨識完成，請確認摘要後再寫入。' : '未辨識到可寫入資料，請補充總長與總寬。');
+  };
+
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+    setSpeechSupported(true);
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'zh-TW';
+    recognition.onstart = () => setIsListening(true);
+    recognition.onresult = (event: any) => {
+      let currentText = '';
+      let isFinal = false;
+      for (let i = 0; i < event.results.length; i += 1) {
+        currentText += event.results[i][0].transcript;
+        isFinal ||= event.results[i].isFinal;
+      }
+      setTranscript(currentText);
+      if (isFinal) prepareDraft(currentText);
+    };
+    recognition.onerror = () => {
+      setIsListening(false);
+      onNotify('語音辨識中斷，請重試或改用文字輸入。');
+    };
+    recognition.onend = () => setIsListening(false);
+    recognitionRef.current = recognition;
+    return () => recognition.abort();
   }, []);
 
   const toggleListening = () => {
     if (!speechSupported) {
-      onNotify('您的瀏覽器不支援直接麥克風口述，您可在右側文字框輸入或點選範例！');
+      onNotify('此瀏覽器不支援麥克風辨識，請改用文字輸入。');
       return;
     }
-
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-    } else {
+    if (isListening) recognitionRef.current?.stop();
+    else {
       setTranscript('');
-      try {
-        recognitionRef.current?.start();
-        setIsListening(true);
-      } catch (e) {
-        console.warn('Recognition start error:', e);
-      }
+      setDraft(null);
+      try { recognitionRef.current?.start(); } catch { onNotify('麥克風尚未就緒，請稍後再試。'); }
     }
   };
 
-  /**
-   * 智慧語音指令解析核心：長度、寬度、淨高、空間名稱、四角放柱
-   */
-  const parseAndApplyVoiceText = (textInput: string) => {
-    const raw = textInput.trim();
-    if (!raw) return;
-
-    let text = raw
-      .replace(/[，,。、；;！!？?]/g, ' ')
-      .replace(/\s+/g, ' ');
-
-    let newWidth = room.width;
-    let newLength = room.length;
-    let newHeight = room.height;
-    let newName = room.roomName;
-    let updatedColumns = [...(room.columns || [])];
-    const parsedLogs: string[] = [];
-
-    // 1. 長度 / 進深 / 總長
-    // 支援："長 420"、"總長 500"、"長 5米"、"長 4.5米"、"長 3米8"
-    const lengthMatch = text.match(/(?:總長|進深|深度|長度|長)\s*(?:為|是|約)?\s*(\d+(?:\.\d+)?)\s*(?:米|公尺|m|cm|公分)?/i);
-    if (lengthMatch) {
-      let val = parseFloat(lengthMatch[1]);
-      if (text.includes(`${lengthMatch[1]}米`) || text.includes(`${lengthMatch[1]}公尺`) || text.includes(`${lengthMatch[1]}m`)) {
-        val = Math.round(val * 100);
-      } else if (val < 20) {
-        // 口述例如 "長 5 寬 4" 小於 20 視為公尺
-        val = Math.round(val * 100);
-      }
-      newLength = Math.max(30, Math.round(val));
-      parsedLogs.push(`總長(進深) ${newLength}cm`);
-    }
-
-    // 2. 寬度 / 面寬 / 總寬
-    const widthMatch = text.match(/(?:總寬|面寬|開間|寬度|寬)\s*(?:為|是|約)?\s*(\d+(?:\.\d+)?)\s*(?:米|公尺|m|cm|公分)?/i);
-    if (widthMatch) {
-      let val = parseFloat(widthMatch[1]);
-      if (text.includes(`${widthMatch[1]}米`) || text.includes(`${widthMatch[1]}公尺`) || text.includes(`${widthMatch[1]}m`)) {
-        val = Math.round(val * 100);
-      } else if (val < 20) {
-        val = Math.round(val * 100);
-      }
-      newWidth = Math.max(30, Math.round(val));
-      parsedLogs.push(`總寬(面寬) ${newWidth}cm`);
-    }
-
-    // 3. 高度 / RC淨高
-    const heightMatch = text.match(/(?:RC|樓高|淨高|高度|高)\s*(?:為|是|約)?\s*(\d+(?:\.\d+)?)\s*(?:米|公尺|m|cm|公分)?/i);
-    if (heightMatch) {
-      let val = parseFloat(heightMatch[1]);
-      if (val < 10) val = Math.round(val * 100);
-      newHeight = Math.max(100, Math.round(val));
-      parsedLogs.push(`淨高 ${newHeight}cm`);
-    }
-
-    // 4. 空間名稱識別
-    const roomNames = ['客廳', '主臥房', '主臥', '次臥', '臥室', '玄關', '書房', '餐廳', '廚房', '陽台', '更衣室', '衛浴'];
-    for (const rName of roomNames) {
-      if (text.includes(rName)) {
-        newName = rName === '主臥' ? '主臥房' : rName;
-        parsedLogs.push(`空間名稱【${newName}】`);
-        break;
-      }
-    }
-
-    // 5. 語音插柱指令 (例如："左上角柱子 50"、"右上角放柱"、"四角放柱")
-    if (text.includes('四角') || text.includes('四個角')) {
-      const corners: ('top-left' | 'top-right' | 'bottom-left' | 'bottom-right')[] = [
-        'top-left', 'top-right', 'bottom-left', 'bottom-right'
-      ];
-      const cNames = ['左上', '右上', '左下', '右下'];
-      corners.forEach((c, i) => {
-        if (!updatedColumns.find((col) => col.corner === c)) {
-          updatedColumns.push({
-            id: `col_${Date.now()}_${c}`,
-            name: `C${updatedColumns.length + 1} ${cNames[i]}角柱`,
-            width: 50, depth: 50, positionType: 'corner', corner: c,
-            wall: c.startsWith('top') ? 'north' : 'south', offset: 0,
-            x: c.endsWith('left') ? 0 : Math.max(0, newWidth - 50),
-            y: c.startsWith('top') ? 0 : Math.max(0, newLength - 50),
-          });
-        }
-      });
-      parsedLogs.push('一鍵四角置柱');
-    } else {
-      const cornerMap: { [key: string]: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' } = {
-        '左上': 'top-left', '西北': 'top-left',
-        '右上': 'top-right', '東北': 'top-right',
-        '左下': 'bottom-left', '西南': 'bottom-left',
-        '右下': 'bottom-right', '東南': 'bottom-right',
-      };
-      for (const [key, cId] of Object.entries(cornerMap)) {
-        if (text.includes(key) && (text.includes('柱') || text.includes('柱子'))) {
-          // 抓取柱寬
-          const colSizeMatch = text.match(new RegExp(`${key}[^0-9]*(\\d{2})`));
-          const size = colSizeMatch ? parseInt(colSizeMatch[1], 10) : 50;
-          if (!updatedColumns.find((col) => col.corner === cId)) {
-            updatedColumns.push({
-              id: `col_${Date.now()}_${cId}`,
-              name: `C${updatedColumns.length + 1} ${key}柱`,
-              width: size, depth: size, positionType: 'corner', corner: cId,
-              wall: cId.startsWith('top') ? 'north' : 'south', offset: 0,
-              x: cId.endsWith('left') ? 0 : Math.max(0, newWidth - size),
-              y: cId.startsWith('top') ? 0 : Math.max(0, newLength - size),
-            });
-            parsedLogs.push(`${key}角柱 ${size}×${size}cm`);
-          }
-        }
-      }
-    }
-
-    if (parsedLogs.length > 0) {
-      onUpdateRoom({
-        ...room,
-        roomName: newName,
-        width: newWidth,
-        length: newLength,
-        height: newHeight,
-        columns: updatedColumns,
-      });
-
-      const feedback = `🎉 已依口述更新：${parsedLogs.join(' · ')}`;
-      setLastParsedFeedback(feedback);
-      onNotify(feedback);
-    } else {
-      onNotify(`收到「${raw}」，請嘗試說出關鍵字如：「長 450 寬 380」或「客廳 總長 5米 寬 4米」`);
-    }
+  const confirmDraft = () => {
+    if (!draft || draft.summary.length === 0) return;
+    onUpdateRoom(draft.room);
+    onNotify(`已確認寫入：${draft.summary.join('、')}`);
+    setDraft(null);
+    setTranscript('');
   };
 
-  const handleManualSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!manualText.trim()) return;
-    parseAndApplyVoiceText(manualText);
-    setManualText('');
+  const cancelDraft = () => {
+    setDraft(null);
+    setTranscript('');
+    onNotify('已取消，原丈量資料沒有變更。');
   };
 
   return (
-    <div className="bg-gradient-to-r from-[#172216] via-[#15231c] to-[#121c16] border-2 border-emerald-500/50 rounded-2xl p-4 md:p-5 shadow-2xl space-y-3">
-      {/* 頂部標題與狀態 */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/50 flex items-center justify-center text-emerald-400">
-            <Mic className="w-5 h-5 animate-pulse" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-base font-bold text-emerald-300">
-                🎙️ 語音極速丈量 (用嘴巴直接報尺寸)
-              </span>
-              <span className="text-[10px] bg-emerald-950 border border-emerald-500/60 text-emerald-200 px-2 py-0.5 rounded-full font-bold">
-                現場丈量零負擔
-              </span>
-            </div>
-            <p className="text-xs text-neutral-300 mt-0.5">
-              直接點擊麥克風說話，說出空間長度與寬度，系統即時自動放樣！
-            </p>
-          </div>
+    <section className="survey-card min-w-0 space-y-4 rounded-2xl border-2 border-emerald-500/50 p-4 shadow-xl md:p-5" aria-labelledby="voice-measure-title">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">目前只做一件事</p>
+          <h2 id="voice-measure-title" className="break-words text-base font-bold survey-text">說出這個空間的總長與總寬</h2>
+          <p className="mt-1 text-xs survey-muted">辨識後先讓你核對，不會直接改動現場資料。</p>
         </div>
-
-        {/* 聆聽狀態指示 */}
-        {isListening && (
-          <div className="flex items-center gap-2 bg-red-950/80 border border-red-500/60 px-3 py-1.5 rounded-full text-xs text-red-200 animate-pulse">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></span>
-            <span className="font-bold">正在聆聽中... 請說話</span>
-          </div>
-        )}
+        {isListening && <span className="self-start rounded-full border border-red-500/60 bg-red-950/80 px-3 py-1.5 text-xs font-bold text-red-200 animate-pulse">正在聆聽</span>}
       </div>
 
-      {/* 核心語音大按鈕與輸入列 */}
-      <div className="flex flex-col sm:flex-row items-center gap-3 pt-1">
-        {/* 大麥克風啟動按鈕 */}
-        <button
-          onClick={toggleListening}
-          className={`w-full sm:w-auto px-6 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-3 transition-all active:scale-95 cursor-pointer shadow-lg ${
-            isListening
-              ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-900/50 ring-4 ring-red-500/40'
-              : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/60'
-          }`}
-        >
-          {isListening ? (
-            <>
-              <MicOff className="w-5 h-5 animate-bounce" />
-              <span>點擊結束口述</span>
-            </>
-          ) : (
-            <>
-              <Mic className="w-5 h-5 text-emerald-100" />
-              <span>點擊說話 (例如「長 420 寬 360」)</span>
-            </>
-          )}
-        </button>
-
-        {/* 文字輸入備用框 (方便手動輸入或貼上) */}
-        <form onSubmit={handleManualSubmit} className="flex-1 w-full flex items-center gap-2">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={isListening ? transcript : manualText}
-              onChange={(e) => setManualText(e.target.value)}
-              placeholder={isListening ? '辨識中...' : '或在此輸入口述文字，如：長 420 寬 360、右上角柱子 50'}
-              className="w-full bg-[#0d140e] border border-emerald-500/40 rounded-xl px-3.5 py-3 text-xs text-emerald-100 placeholder-neutral-500 focus:outline-none focus:border-emerald-400 pr-16"
-            />
-            {manualText && (
-              <button
-                type="submit"
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[11px] font-bold transition cursor-pointer"
-              >
-                辨識
-              </button>
-            )}
-          </div>
-        </form>
-      </div>
-
-      {/* 常用範例快速點擊按鈕 (一秒代入口述指令) */}
-      <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs">
-        <span className="text-neutral-400 text-[11px] font-medium">常見口述快速點測：</span>
-        {[
-          { label: '「總長 420 總寬 360」', val: '總長 420 總寬 360' },
-          { label: '「客廳 長 5米 寬 4米 高 280」', val: '客廳 長 5米 寬 4米 高 280' },
-          { label: '「主臥房 長 480 寬 380」', val: '主臥房 長 480 寬 380' },
-          { label: '「四角放柱」', val: '四角放柱' },
-          { label: '「右上角柱子 50」', val: '右上角柱子 50' },
-        ].map((chip) => (
-          <button
-            key={chip.val}
-            onClick={() => parseAndApplyVoiceText(chip.val)}
-            className="px-2.5 py-1 rounded-lg bg-[#142016] hover:bg-emerald-950 text-emerald-300 hover:text-white border border-emerald-500/30 text-[11px] font-mono transition active:scale-95 cursor-pointer"
-          >
-            {chip.label}
+      {!draft && (
+        <div className="space-y-3">
+          <button onClick={toggleListening} className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold text-white transition active:scale-[.98] ${isListening ? 'bg-red-600' : 'bg-emerald-600 hover:bg-emerald-500'}`}>
+            {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+            {isListening ? '結束口述' : '開始口述'}
           </button>
-        ))}
-      </div>
-
-      {/* 辨識成功即時反饋條 */}
-      {lastParsedFeedback && (
-        <div className="p-2.5 bg-emerald-950/70 border border-emerald-500/60 rounded-xl flex items-center gap-2 text-xs text-emerald-200 animate-fadeIn font-mono">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>{lastParsedFeedback}</span>
+          <form onSubmit={(event) => { event.preventDefault(); prepareDraft(manualText); }} className="flex min-w-0 flex-col gap-2 sm:flex-row">
+            <input value={isListening ? transcript : manualText} onChange={(event) => !isListening && setManualText(event.target.value)} readOnly={isListening} placeholder="例如：主臥長 480、寬 360、高 280" className="survey-input min-w-0 flex-1 rounded-xl border px-3.5 py-3 text-sm outline-none" />
+            <button type="submit" disabled={!manualText.trim() || isListening} className="shrink-0 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">辨識內容</button>
+          </form>
+          <button type="button" onClick={() => prepareDraft('客廳 長 5米 寬 4米 高 280')} className="max-w-full rounded-lg border border-emerald-500/30 px-2.5 py-1 text-left text-[11px] text-emerald-400">試用範例：客廳長 5 米、寬 4 米、高 280</button>
         </div>
       )}
-    </div>
+
+      {draft && (
+        <div className="survey-review min-w-0 space-y-3 rounded-xl border p-3" role="status" aria-live="polite">
+          <div>
+            <p className="text-xs font-bold survey-text">辨識摘要（尚未寫入）</p>
+            <p className="mt-1 break-words text-[11px] survey-muted">原句：{draft.source}</p>
+          </div>
+          {draft.summary.length > 0 ? (
+            <ul className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
+              {draft.summary.map((item) => <li key={item} className="flex min-w-0 items-start gap-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span className="break-words">{item}</span></li>)}
+            </ul>
+          ) : <p className="text-xs text-amber-500">沒有可寫入項目，請取消後重新口述。</p>}
+          {draft.warnings.length > 0 && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs text-amber-500">
+              <p className="mb-1 flex items-center gap-1 font-bold"><AlertCircle className="h-3.5 w-3.5" />需留意</p>
+              {draft.warnings.map((warning) => <p key={warning} className="break-words">・{warning}</p>)}
+            </div>
+          )}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button type="button" onClick={cancelDraft} className="flex items-center justify-center gap-1.5 rounded-xl border survey-border px-4 py-2.5 text-sm font-bold survey-text"><RotateCcw className="h-4 w-4" />取消，不寫入</button>
+            <button type="button" onClick={confirmDraft} disabled={draft.summary.length === 0} className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-40"><Check className="h-4 w-4" />確認寫入丈量資料</button>
+          </div>
+        </div>
+      )}
+    </section>
   );
 };

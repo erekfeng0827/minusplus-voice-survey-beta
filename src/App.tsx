@@ -80,6 +80,16 @@ import {
 export default function App() {
   const { user, syncStatus } = useAuth();
 
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('minusplus_ui_theme');
+    return saved === 'light' ? 'light' : 'dark';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('minusplus_ui_theme', theme);
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
   const [showDebug, setShowDebug] = useState(false);
 
   // 快捷鍵觸發除錯面板: Ctrl+Shift+D
@@ -329,7 +339,7 @@ export default function App() {
 
   return (
     // 🌟 100% 滿版無邊際畫布 (Overflow Hidden)
-    <div className="relative w-full h-screen overflow-hidden bg-[#121810] text-[#F8F8F6] antialiased selection:bg-[#E0A83C] selection:text-[#23301F]">
+    <div data-theme={theme} className="survey-app relative w-full h-screen overflow-hidden antialiased selection:bg-[#E0A83C] selection:text-[#23301F]">
       
       {/* 🌟 完美植入 CIS 字體系統 */}
       <style>{`
@@ -378,6 +388,8 @@ export default function App() {
           projectName={projectName}
           onOpenProjectWizard={() => setIsSurveyWizardOpen(true)}
           onOpenPdfImport={() => setIsPdfImportOpen(true)}
+          theme={theme}
+          onToggleTheme={() => setTheme((value) => value === 'dark' ? 'light' : 'dark')}
         />
 
         {/* 階段主要工作視圖 */}

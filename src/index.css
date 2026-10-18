@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: dark;
   /* 基礎背景與表面色 (Claude Design System v1.0) */
   --bg-app: #0c0f17;
   --bg-canvas: #121622;
@@ -24,12 +25,57 @@
   /* 字體族系 */
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* 現場丈量語意 token：App 根節點可用 data-theme="light|dark" 切換 */
+  --survey-app-bg: #0a0f0b;
+  --survey-surface: #121810;
+  --survey-surface-raised: #182216;
+  --survey-input-bg: #0d140e;
+  --survey-text: #f8f8f6;
+  --survey-muted: #a3a3a3;
+  --survey-border: rgba(63, 91, 99, 0.5);
+  --survey-review-bg: rgba(6, 78, 59, 0.24);
+}
+
+:root[data-theme="light"],
+[data-theme="light"] {
+  color-scheme: light;
+  --survey-app-bg: #f5f7f4;
+  --survey-surface: #ffffff;
+  --survey-surface-raised: #eef3ec;
+  --survey-input-bg: #ffffff;
+  --survey-text: #172019;
+  --survey-muted: #5f6b62;
+  --survey-border: rgba(54, 83, 65, 0.24);
+  --survey-review-bg: #eefbf4;
+}
+
+:root[data-theme="dark"],
+[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 body {
-  background-color: #121622;
-  color: #f1f5f9;
+  background-color: var(--survey-app-bg);
+  color: var(--survey-text);
   font-family: var(--font-sans);
+  margin: 0;
+  min-width: 320px;
+  overflow-x: hidden;
+}
+
+.survey-app { background: var(--survey-app-bg); color: var(--survey-text); }
+.survey-header, .survey-sidebar, .survey-card { background: var(--survey-surface); border-color: var(--survey-border); }
+.survey-nav, .survey-review { background: var(--survey-review-bg); border-color: var(--survey-border); }
+.survey-input { background: var(--survey-input-bg); border-color: var(--survey-border); color: var(--survey-text); }
+.survey-input::placeholder { color: var(--survey-muted); }
+.survey-text { color: var(--survey-text); }
+.survey-muted { color: var(--survey-muted); }
+.survey-border { border-color: var(--survey-border); }
+
+@media (max-width: 390px) {
+  button, input, select { max-width: 100%; }
+  .survey-card { padding: 0.875rem; }
 }
 
 @keyframes spin-slow {
