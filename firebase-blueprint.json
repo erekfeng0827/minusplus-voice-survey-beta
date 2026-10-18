@@ -1,0 +1,80 @@
+{
+  "entities": {
+    "users": {
+      "title": "使用者帳號與個人檔案",
+      "description": "存放透過 Google 登入驗證的設計師個人資料與權限",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "description": "Google 帳號 Email" },
+        "displayName": { "type": "string", "description": "設計師姓名或暱稱" },
+        "photoURL": { "type": "string", "description": "Google 頭像 URL" },
+        "createdAt": { "type": "string", "description": "註冊時間 (ISO)" },
+        "lastLoginAt": { "type": "string", "description": "最後登入時間 (ISO)" }
+      },
+      "required": ["uid", "email"]
+    },
+    "projects": {
+      "title": "室內設計案場放樣專案",
+      "description": "儲存設計師建立的空間放樣尺寸、房間、梁柱契約與施工圖資料",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "專案唯一 ID" },
+        "userId": { "type": "string", "description": "建立者 UID" },
+        "projectName": { "type": "string", "description": "案場名稱，如星玥灣A1戶" },
+        "address": { "type": "string", "description": "案場地址" },
+        "clearCeilingHeight": { "type": "number", "description": "樓板清水淨高 (cm)" },
+        "beamBottomHeight": { "type": "number", "description": "梁底淨高 (cm，預設265)" },
+        "droppedCeilingHeight": { "type": "number", "description": "降板淨高 (cm，預設230)" },
+        "rooms": { "type": "array", "description": "空間列表 (RoomData)" },
+        "updatedAt": { "type": "string", "description": "最後更新時間 (ISO)" }
+      },
+      "required": ["id", "userId", "projectName"]
+    },
+    "customBlocks": {
+      "title": "個人專屬圖塊與剖面填充",
+      "description": "使用者自訂之家具插圖、施工大樣與 .pat 剖面填充庫",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "圖塊 ID" },
+        "userId": { "type": "string", "description": "擁有者 UID" },
+        "name": { "type": "string", "description": "圖塊或填充名稱" },
+        "category": { "type": "string", "description": "furniture | detail_joint | title_symbol | hatch_pattern" },
+        "subCategory": { "type": "string", "description": "子分類名稱" },
+        "cadLayer": { "type": "string", "description": "預設對應 CAD 圖層" },
+        "hatchData": { "type": "object", "description": "剖面線 .pat 語法及角度間距資料" },
+        "updatedAt": { "type": "string", "description": "最後儲存時間" }
+      },
+      "required": ["id", "userId", "name", "category"]
+    },
+    "cadDnaProfiles": {
+      "title": "設計師個人 CAD 規格表 DNA",
+      "description": "學習獲得之個人圖層標準、剖面線填充規則與出圖樣式",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "規格表 ID" },
+        "userId": { "type": "string", "description": "擁有者 UID" },
+        "profileName": { "type": "string", "description": "規格表名稱" },
+        "hatchRules": { "type": "array", "description": "剖面填充規則列表" },
+        "layerMapping": { "type": "object", "description": "圖層名稱與色碼映射" },
+        "updatedAt": { "type": "string", "description": "最後修訂時間" }
+      },
+      "required": ["id", "userId", "profileName"]
+    },
+    "searchGroundingQueries": {
+      "title": "Google Search Grounding 實時檢索紀錄",
+      "description": "儲存針對最新建材法規、耐燃耐震規範與價格之 Google 實時搜尋依據",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "檢索紀錄 ID" },
+        "userId": { "type": "string", "description": "使用者 UID" },
+        "query": { "type": "string", "description": "查詢關鍵字" },
+        "groundedAnswer": { "type": "string", "description": "Gemini 2.5 Flash 結合 Google 搜尋之權威回答" },
+        "webSearchQueries": { "type": "array", "description": "Google 實時搜尋觸發詞" },
+        "sources": { "type": "array", "description": "來源網頁標題與網址連結清單" },
+        "createdAt": { "type": "string", "description": "查詢時間" }
+      },
+      "required": ["id", "query", "groundedAnswer"]
+    }
+  }
+}
