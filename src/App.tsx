@@ -79,19 +79,35 @@ import {
   Ruler, FileSearch, AlertTriangle, PaintBucket, ChevronUp, ChevronLeft, ChevronRight,
   Building, ArrowRight
 } from 'lucide-react';
+import { GLOBAL_THEME_MODE_KEY, GLOBAL_THEME_VALUE_KEY, nextThemePreference, resolveTheme, ThemePreference } from './utils/themePreference';
 
 export default function App() {
   const { user, syncStatus } = useAuth();
 
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const saved = localStorage.getItem('minusplus_ui_theme');
-    return saved === 'dark' ? 'dark' : 'light';
+  const [themePreference, setThemePreference] = useState<ThemePreference>(() => {
+    const saved = localStorage.getItem(GLOBAL_THEME_MODE_KEY);
+    return saved === 'light' || saved === 'dark' || saved === 'auto' ? saved : 'auto';
   });
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => resolveTheme(
+    (localStorage.getItem(GLOBAL_THEME_MODE_KEY) as ThemePreference | null) || 'auto',
+  ));
 
   useEffect(() => {
-    localStorage.setItem('minusplus_ui_theme', theme);
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
+    const applyTheme = () => {
+      const next = resolveTheme(themePreference);
+      setTheme(next);
+      localStorage.setItem(GLOBAL_THEME_MODE_KEY, themePreference);
+      localStorage.setItem(GLOBAL_THEME_VALUE_KEY, next);
+      document.documentElement.dataset.theme = next;
+      document.documentElement.style.colorScheme = next;
+    };
+    applyTheme();
+    if (themePreference !== 'auto') return;
+    const timer = window.setInterval(applyTheme, 60_000);
+    return () => window.clearInterval(timer);
+  }, [themePreference]);
+
+  const cycleThemePreference = () => setThemePreference((value) => nextThemePreference(value));
 
   const [showDebug, setShowDebug] = useState(false);
   const [showLaunchScreen, setShowLaunchScreen] = useState(true);
@@ -444,7 +460,8 @@ export default function App() {
         hasSavedProject={Boolean(localStorage.getItem('minusplus_active_rooms'))}
         savedProjectName={projectName}
         theme={theme}
-        onToggleTheme={() => setTheme((value) => value === 'dark' ? 'light' : 'dark')}
+        themePreference={themePreference}
+        onToggleTheme={cycleThemePreference}
         onStartBlank={startBlankProject}
         onUseExample={useCompleteExample}
         onContinue={() => setShowLaunchScreen(false)}
@@ -504,7 +521,8 @@ export default function App() {
           onOpenProjectWizard={() => setIsSurveyWizardOpen(true)}
           onOpenPdfImport={() => setIsPdfImportOpen(true)}
           theme={theme}
-          onToggleTheme={() => setTheme((value) => value === 'dark' ? 'light' : 'dark')}
+          themePreference={themePreference}
+          onToggleTheme={cycleThemePreference}
           completedSteps={completedCleanSteps}
         />
 

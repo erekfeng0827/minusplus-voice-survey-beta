@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowRight, Building2, FolderOpen, Hammer, Home, LayoutTemplate, Moon, Sparkles, Sun } from 'lucide-react';
+import type { ThemePreference } from '../utils/themePreference';
 
 export type BuildingKind = 'apartment' | 'townhouse';
 export type SiteCondition = 'new_build' | 'shell';
@@ -8,13 +9,14 @@ interface Props {
   hasSavedProject: boolean;
   savedProjectName: string;
   theme: 'light' | 'dark';
+  themePreference: ThemePreference;
   onToggleTheme: () => void;
   onStartBlank: (kind: BuildingKind, condition: SiteCondition) => void;
   onUseExample: () => void;
   onContinue: () => void;
 }
 
-export const CleanLaunchScreen: React.FC<Props> = ({ hasSavedProject, savedProjectName, theme, onToggleTheme, onStartBlank, onUseExample, onContinue }) => {
+export const CleanLaunchScreen: React.FC<Props> = ({ hasSavedProject, savedProjectName, theme, themePreference, onToggleTheme, onStartBlank, onUseExample, onContinue }) => {
   const [kind, setKind] = useState<BuildingKind>('apartment');
   const [condition, setCondition] = useState<SiteCondition>('new_build');
   const [showExample, setShowExample] = useState(false);
@@ -29,7 +31,7 @@ export const CleanLaunchScreen: React.FC<Props> = ({ hasSavedProject, savedProje
       <div className="mx-auto flex min-h-[100svh] w-full max-w-5xl flex-col px-5 pb-8 pt-[max(24px,env(safe-area-inset-top))] sm:px-9">
         <header className="survey-border flex items-center justify-between border-b pb-4">
           <img src="./minusplus-logo.png" alt="加減設計 MINUSPLUS DESIGN" className="h-14 w-40 object-contain object-left" />
-          <button type="button" onClick={onToggleTheme} aria-label="切換明暗模式" className="survey-card rounded-xl border p-2.5"><span className="sr-only">切換明暗模式</span>{theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}</button>
+          <button type="button" onClick={onToggleTheme} aria-label={`主題：${themePreference === 'auto' ? '自動' : themePreference === 'light' ? '日間' : '夜間'}；點擊切換`} title="自動 → 日間 → 夜間" className="survey-card flex items-center gap-1.5 rounded-xl border px-2.5 py-2"><span className="text-[10px] font-bold">{themePreference === 'auto' ? '自動' : themePreference === 'light' ? '日間' : '夜間'}</span>{theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}</button>
         </header>
 
         <section className="flex flex-1 flex-col justify-center py-8">

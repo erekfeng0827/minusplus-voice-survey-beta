@@ -10,6 +10,7 @@ import {
   ChevronDown,
   FolderPlus,
 } from 'lucide-react';
+import type { ThemePreference } from '../utils/themePreference';
 interface CleanStepNavigationProps {
   currentStep: '1_survey' | '2_stitch' | '3_layout';
   onStepChange: (step: '1_survey' | '2_stitch' | '3_layout') => void;
@@ -17,6 +18,7 @@ interface CleanStepNavigationProps {
   onOpenProjectWizard?: () => void;
   onOpenPdfImport?: () => void;
   theme?: 'light' | 'dark';
+  themePreference?: ThemePreference;
   onToggleTheme?: () => void;
   completedSteps?: Array<'1_survey' | '2_stitch' | '3_layout'>;
 }
@@ -28,6 +30,7 @@ export const CleanStepHeader: React.FC<CleanStepNavigationProps> = ({
   onOpenProjectWizard,
   onOpenPdfImport,
   theme = 'dark',
+  themePreference = 'auto',
   onToggleTheme,
   completedSteps = [],
 }) => {
@@ -65,8 +68,8 @@ export const CleanStepHeader: React.FC<CleanStepNavigationProps> = ({
           <button
             onClick={onToggleTheme}
             className="shrink-0 rounded-lg border border-[#3F5B63]/40 p-1.5 survey-text transition hover:bg-amber-500/15"
-            aria-label={theme === 'dark' ? '切換白天模式' : '切換夜間模式'}
-            title={theme === 'dark' ? '切換白天模式' : '切換夜間模式'}
+            aria-label={`主題：${themePreference === 'auto' ? '自動' : themePreference === 'light' ? '日間' : '夜間'}；點擊切換`}
+            title="自動 → 日間 → 夜間"
           >
             {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
