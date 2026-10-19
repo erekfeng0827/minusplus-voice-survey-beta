@@ -65,7 +65,7 @@ export const ConstructionSheetSet: React.FC<ConstructionSheetSetProps> = ({ room
   // === A-01 Execution Progress Bar Pipeline State ===
   const [a01Progress, setA01Progress] = useState<number>(100);
   const [isA01Executing, setIsA01Executing] = useState<boolean>(false);
-  const [a01CurrentStage, setA01CurrentStage] = useState<string>('A-01 現況放樣圖紙與 DXF 圖元已鎖定就緒');
+  const [a01CurrentStage, setA01CurrentStage] = useState<string>('A-01 已依目前空間資料生成候選圖；待 CAD 回讀');
   const [a01ActiveStepIndex, setA01ActiveStepIndex] = useState<number>(3); // 0, 1, 2, 3
   const [a01ShowLogDrawer, setA01ShowLogDrawer] = useState<boolean>(false);
   const [a01LogSteps, setA01LogSteps] = useState<
@@ -74,25 +74,25 @@ export const ConstructionSheetSet: React.FC<ConstructionSheetSetProps> = ({ room
     {
       time: '09:10:01.020',
       stage: '拓撲定錨',
-      desc: '讀取空間拓撲座標系：開間 480cm × 進深 550cm × 樓高 280cm',
+      desc: `讀取目前空間：${room.width}cm × ${room.length}cm × ${room.height}cm`,
       status: 'ok',
     },
     {
       time: '09:10:01.320',
       stage: '幾何契約',
-      desc: '《降板裁決_v003.json》剛性審計：梁下 FL+265、降板 FL+230、衛浴 FL+215 全數符合 5 倍數',
+      desc: '檢查目前梁與降板資料；结果须以本次重算值为准',
       status: 'ok',
     },
     {
       time: '09:10:01.680',
       stage: '尺寸鏈生成',
-      desc: '自動生成三層鏈式尺寸標註與門窗角部偏移避障，消解重疊圖元 (V-06 Passed)',
+      desc: '依目前資料生成尺寸候選；尚未做 CAD 視覺回讀',
       status: 'ok',
     },
     {
       time: '09:10:02.040',
       stage: '圖紙封裝',
-      desc: 'A-01 現況放樣尺寸圖 (Scale 1:50) 渲染完成，AutoCAD DXF 圖元鎖定',
+      desc: 'A-01 畫面候選已生成；DXF 必須下載後由 CAD 回讀確認',
       status: 'ok',
     },
   ]);
@@ -189,7 +189,7 @@ export const ConstructionSheetSet: React.FC<ConstructionSheetSetProps> = ({ room
         {
           time: formatTime(650),
           stage: '尺寸標註',
-          desc: `生成全圖面 ${dimensionData.totalCount} 處標註點位 (開間外鏈、門窗角部開孔偏移，消解疊圖圖元 V-06 Passed)`,
+          desc: `生成全圖面 ${dimensionData.totalCount} 處標註候選（尚未經 CAD 視覺回讀）`,
           status: 'running',
         },
       ]);
@@ -198,7 +198,7 @@ export const ConstructionSheetSet: React.FC<ConstructionSheetSetProps> = ({ room
     setTimeout(() => {
       setA01Progress(100);
       setA01ActiveStepIndex(3);
-      setA01CurrentStage('A-01 現況放樣尺寸圖已就緒 · Codex 晶晶驗收通過 (V-01~10)');
+      setA01CurrentStage('A-01 候選圖已依目前資料生成 · 状态 EVIDENCE_READY，待 CAD 回讀');
       setA01LogSteps((prev) => [
         prev[0],
         prev[1],
@@ -206,7 +206,7 @@ export const ConstructionSheetSet: React.FC<ConstructionSheetSetProps> = ({ room
         {
           time: formatTime(1020),
           stage: '圖面封裝',
-          desc: `A-01 現場放樣圖紙 (比例 1:50) 渲染完成，AutoCAD DXF 圖元已同步鎖定，驗收合格！`,
+          desc: `A-01 現場放樣候選圖 (比例 1:50) 已生成；未宣稱施工圖驗收合格`,
           status: 'ok',
         },
       ]);
@@ -486,7 +486,7 @@ export const ConstructionSheetSet: React.FC<ConstructionSheetSetProps> = ({ room
           className="flex items-center gap-1.5 text-[11px] text-cyan-400 hover:text-cyan-300 font-medium px-2 py-1 rounded hover:bg-cyan-950/40 border border-cyan-800/40 transition-colors"
         >
           <Layers className="w-3.5 h-3.5" />
-          <span>查看自動標註核定總表 ({dimensionData.totalCount} 處 · 100% 合規)</span>
+          <span>查看自動標註候選表 ({dimensionData.totalCount} 處 · 5倍數率 {dimensionData.rule5PassRate}%)</span>
         </button>
       </div>
 
@@ -496,7 +496,7 @@ export const ConstructionSheetSet: React.FC<ConstructionSheetSetProps> = ({ room
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-cyan-400 flex-shrink-0" />
             <span>
-              <strong>尺寸標註自動補足完成！</strong> 根據現況放樣已在圖面建立{' '}
+              <strong>尺寸標註候選已重新計算。</strong> 根據現況放樣已在圖面建立{' '}
               <span className="font-mono text-white font-bold">{generatedToast.count}</span> 處標註（牆面開間{' '}
               {generatedToast.wallCount} 處、門窗角部偏移 {generatedToast.openingCount} 處、天花降板與梁下標高{' '}
               {generatedToast.dropCount} 處），5 倍數合規率{' '}
@@ -504,7 +504,7 @@ export const ConstructionSheetSet: React.FC<ConstructionSheetSetProps> = ({ room
             </span>
           </div>
           <span className="text-[10px] bg-cyan-900 text-cyan-300 px-2 py-0.5 rounded border border-cyan-700 font-mono">
-            V-01~10 PASSED
+            EVIDENCE_READY
           </span>
         </div>
       )}
@@ -952,7 +952,7 @@ export const ConstructionSheetSet: React.FC<ConstructionSheetSetProps> = ({ room
                       ) : (
                         <span className="px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-[10px] font-semibold flex items-center gap-1.5">
                           <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                          V-01~10 契約驗收通過
+                          EVIDENCE_READY · 待 CAD 回讀
                         </span>
                       )}
                     </div>
@@ -1026,7 +1026,7 @@ export const ConstructionSheetSet: React.FC<ConstructionSheetSetProps> = ({ room
                   {
                     idx: 3,
                     label: '4. A-01 出圖就緒',
-                    desc: '1:50 施工圖與 DXF 鎖定',
+                    desc: '1:50 候選圖与 DXF 生成',
                   },
                 ].map((step) => {
                   const isPassed = a01ActiveStepIndex > step.idx || a01Progress === 100;
@@ -1065,7 +1065,7 @@ export const ConstructionSheetSet: React.FC<ConstructionSheetSetProps> = ({ room
                 <div className="mt-2 p-3 bg-black/80 border border-slate-800 rounded-lg font-mono text-[11px] text-slate-300 space-y-1.5 max-h-44 overflow-y-auto">
                   <div className="flex items-center justify-between text-slate-500 pb-1 border-b border-slate-800/80">
                     <span>CODEX PIPELINE EXECUTION TELEMETRY (A-01)</span>
-                    <span className="text-emerald-400">ENGINE: V-01~V-10 PASSED</span>
+                    <span className="text-amber-400">ENGINE: CANDIDATE · CAD READBACK REQUIRED</span>
                   </div>
                   {a01LogSteps.map((log, idx) => (
                     <div key={idx} className="flex items-start gap-2">

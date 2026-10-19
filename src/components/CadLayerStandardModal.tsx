@@ -249,7 +249,7 @@ export const CadLayerStandardModal: React.FC<CadLayerStandardModalProps> = ({
                   <span>圖層分配與 ACI 色彩、線型、線寬規範</span>
                 </h5>
                 <span className="text-[11px] text-slate-400 font-mono">
-                  AutoCAD DXF / DWG 100% 相容
+                  SCR 候選規範 · 待 AutoCAD 回讀
                 </span>
               </div>
 
