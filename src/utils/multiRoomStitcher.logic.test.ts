@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { RoomData } from '../types';
-import { calculateStitchedFloorPlan, generateFullHouseDxfString } from './multiRoomStitcher';
+import { applyManualRoomPlacements, calculateStitchedFloorPlan, generateFullHouseDxfString } from './multiRoomStitcher';
 
 const base = (id: string, name: string): RoomData => ({
   id, roomName: name, width: 400, length: 500, height: 280, ceilingDrop: 230, beamHeight: 265, wallThickness: 15,
@@ -38,3 +38,12 @@ assert.match(dxf, /沙发 200x90cm/);
 assert.match(dxf, /10\n100\.0\n20\n200\.0/, 'shell coordinates must be exported as cm x10 millimeters');
 
 console.log('Multi-room stitcher: PASS');
+
+const manualRooms = [living, bedroom].map((room, index) => index === 1 ? { ...room, manualPlacement: { x: 700, y: 80, rotation: 90 as const } } : room);
+const manual = applyManualRoomPlacements(result, manualRooms);
+const moved = manual.placements.find((placement) => placement.roomId === manualRooms[1].id);
+if (!moved || moved.x !== 700 || moved.y !== 80 || moved.rotation !== 90) throw new Error('人工房间坐标未套用');
+if (manual.boundingBox.maxX < moved.x + moved.effectiveWidth) throw new Error('人工定位后边界框未重算');
+if (manual.sharedWallCount !== 0 || manual.totalCoincidentWallLength !== 0) throw new Error('人工定位后不得沿用过期共壁数据');
+const manualDxf = generateFullHouseDxfString(manualRooms, manual, 'manual-placement-test');
+if (!manualDxf.includes('10\n7000.0')) throw new Error('全案 DXF 未采用人工房间坐标');

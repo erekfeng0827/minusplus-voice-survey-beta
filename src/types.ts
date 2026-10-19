@@ -240,6 +240,7 @@ export interface RoomData {
   width: number; // cm (e.g. 480)
   length: number; // cm (e.g. 380)
   height: number; // cm floor to slab (RC樓板原結構淨高，如 280)
+  manualPlacement?: { x: number; y: number; rotation: 0 | 90 | 180 | 270 }; // 整戶平面人工定位；未设置时使用自动拼接
   ceilingDrop: number; // cm ceiling drop (天花板降板造型高度，如 230)
   beamHeight: number; // cm beam bottom clearance (大梁底離地淨高，如 265)
   bathKitchenDrop?: number; // cm (衛浴/廚房降板高度，如 215)

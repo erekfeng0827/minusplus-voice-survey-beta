@@ -89,6 +89,17 @@ export const MultiRoomStitcherModal: React.FC<MultiRoomStitcherModalProps> = ({
     onUpdateRooms(updated);
   };
 
+  const handleManualPlacement = (roomId: string, field: 'x' | 'y' | 'rotation', value: number | null) => {
+    const automatic = stitchedResult.placements.find((placement) => placement.roomId === roomId);
+    const updated = rooms.map((room) => {
+      if (room.id !== roomId) return room;
+      if (value === null) return { ...room, manualPlacement: undefined };
+      const current = room.manualPlacement || { x: automatic?.x || 0, y: automatic?.y || 0, rotation: automatic?.rotation || 0 };
+      return { ...room, manualPlacement: { ...current, [field]: field === 'rotation' ? value as 0 | 90 | 180 | 270 : Math.round(Number(value)) }, lastUpdated: new Date().toISOString() };
+    });
+    onUpdateRooms(updated);
+  };
+
   const handleUpdateWindow = (roomId: string, windowId: string, updates: Partial<WindowOpening>) => {
     const updated = rooms.map((r) => {
       if (r.id === roomId) {
@@ -422,6 +433,10 @@ export const MultiRoomStitcherModal: React.FC<MultiRoomStitcherModalProps> = ({
                     ? '💡 依據相鄰空間牆體重合原則與 AABB 剛體無穿透約束，自動串聯成長成具備真實幾何比例的平面圖。'
                     : '💡 嚴格依據兩兩空間門洞相同標籤 (A, B, C...) 進行幾何平移與剛體旋轉對齊。'}
                 </p>
+                <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-200">
+                  拖动画布只移动观看视角；下方 X／Y／旋转才会修改并保存房间坐标。
+                </div>
+                {selectedRoom && (() => { const placement = stitchedResult.placements.find((item) => item.roomId === selectedRoom.id); if (!placement) return null; return <div className="mt-3 rounded-xl border border-[#3F5B63]/40 bg-[#182216] p-3"><div className="mb-2 flex items-center justify-between"><strong className="text-xs text-[#F8F8F6]">人工定位 · {selectedRoom.roomName}</strong><button onClick={() => handleManualPlacement(selectedRoom.id, 'x', null)} className="text-[10px] text-amber-300">恢复自动拼接</button></div><div className="grid grid-cols-3 gap-2">{([['x','X (cm)',placement.x],['y','Y (cm)',placement.y]] as const).map(([field,label,value]) => <label key={field} className="text-[10px] text-[#DDD7CE]">{label}<input type="number" step="5" value={value} onChange={(event) => handleManualPlacement(selectedRoom.id, field, Number(event.target.value))} className="mt-1 w-full rounded-lg border border-[#3F5B63] bg-[#10170f] p-2 text-white" /></label>)}<label className="text-[10px] text-[#DDD7CE]">旋转<input aria-label="房间旋转" type="number" step="90" min="0" max="270" value={placement.rotation} onChange={(event) => handleManualPlacement(selectedRoom.id, 'rotation', ([0,90,180,270].includes(Number(event.target.value)) ? Number(event.target.value) : 0))} className="mt-1 w-full rounded-lg border border-[#3F5B63] bg-[#10170f] p-2 text-white" /></label></div><div className={`mt-2 text-[10px] font-bold ${stitchedResult.zeroCollisionVerified ? 'text-emerald-300' : 'text-rose-300'}`}>{stitchedResult.zeroCollisionVerified ? '当前无房间穿透' : '检测到房间重叠，请调整坐标'}</div></div>; })()}
 
                 {/* 剛體運算觸發按鈕 */}
                 <button

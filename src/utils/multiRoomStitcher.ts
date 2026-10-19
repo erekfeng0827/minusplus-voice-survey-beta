@@ -825,7 +825,7 @@ export function calculateStitchedFloorPlan(
   stitchMode: 'door_anchored' | 'rigid_body_collision' = 'door_anchored'
 ): StitchedFloorPlanResult {
   if (stitchMode === 'rigid_body_collision') {
-    return calculateRigidBodyCoincidentStitchedFloorPlan(rooms, baseRoomId, wallThickness);
+    return applyManualRoomPlacements(calculateRigidBodyCoincidentStitchedFloorPlan(rooms, baseRoomId, wallThickness), rooms);
   }
 
   if (!rooms || rooms.length === 0) {
@@ -1239,7 +1239,7 @@ export function calculateStitchedFloorPlan(
     `全室拓撲拼接完成：${placements.length} 個空間、${pairedDoorsCount} 組門洞錨點、共壁 ${totalCoincidentWallLength}cm、碰撞檢查${zeroCollisionVerified ? '通过' : '未通过'}。總實坪 ${totalAreaPing} 坪 (${totalAreaM2} m²)`
   );
 
-  return {
+  return applyManualRoomPlacements({
     placements,
     boundingBox: { minX, minY, maxX, maxY, totalWidth, totalLength },
     totalAreaM2,
@@ -1251,6 +1251,50 @@ export function calculateStitchedFloorPlan(
     stitchMethod: 'door_anchored',
     zeroCollisionVerified,
     totalCoincidentWallLength,
+  }, rooms);
+}
+
+export function applyManualRoomPlacements(result: StitchedFloorPlanResult, rooms: RoomData[]): StitchedFloorPlanResult {
+  if (!rooms.some((room) => room.manualPlacement)) return result;
+  const placements = result.placements.map((placement) => {
+    const room = rooms.find((candidate) => candidate.id === placement.roomId);
+    const manual = room?.manualPlacement;
+    if (!room || !manual) return placement;
+    const rotated = manual.rotation === 90 || manual.rotation === 270;
+    return {
+      ...placement,
+      x: manual.x,
+      y: manual.y,
+      rotation: manual.rotation,
+      effectiveWidth: rotated ? room.length : room.width,
+      effectiveLength: rotated ? room.width : room.length,
+      sharedWalls: [],
+      coincidentSegments: [],
+      coincidentOverlapTotal: 0,
+      collisionStatus: undefined,
+    };
+  });
+  const minX = Math.min(...placements.map((p) => p.x));
+  const minY = Math.min(...placements.map((p) => p.y));
+  const maxX = Math.max(...placements.map((p) => p.x + p.effectiveWidth));
+  const maxY = Math.max(...placements.map((p) => p.y + p.effectiveLength));
+  const zeroCollisionVerified = placements.every((p, index) => placements.slice(index + 1).every((other) => {
+    const overlapX = Math.min(p.x + p.effectiveWidth, other.x + other.effectiveWidth) - Math.max(p.x, other.x);
+    const overlapY = Math.min(p.y + p.effectiveLength, other.y + other.effectiveLength) - Math.max(p.y, other.y);
+    return !(overlapX > 1 && overlapY > 1);
+  }));
+  return {
+    ...result,
+    placements,
+    boundingBox: { minX, minY, maxX, maxY, totalWidth: Math.round(maxX - minX), totalLength: Math.round(maxY - minY) },
+    pairedDoorsCount: 0,
+    sharedWallCount: 0,
+    totalCoincidentWallLength: 0,
+    zeroCollisionVerified,
+    auditNotes: [
+      `已套用 ${rooms.filter((room) => room.manualPlacement).length} 个房间人工坐标；自动共壁数据已作废，碰撞检查${zeroCollisionVerified ? '通过' : '未通过'}。`,
+      ...result.auditNotes,
+    ],
   };
 }
 
