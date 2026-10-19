@@ -10,7 +10,7 @@ type Draft =
   | { kind: 'column'; label: string; wall: Wall; offset: number; width: number; depth: number; height: number; summary: string[]; source: string }
   | { kind: 'beam'; label: string; wall: Wall; offset: number; width: number; depth: number; clearHeight: number; summary: string[]; source: string }
   | { kind: 'cabinet'; label: string; wall: Wall; offset: number; width: number; depth: number; height: number; elevation: number; summary: string[]; source: string }
-  | { kind: 'stair'; stairType: StairType; label: string; wall: Wall; offset: number; width: number; depth: number; risers?: number; turnDirection?: 'left' | 'right'; summary: string[]; source: string };
+  | { kind: 'stair'; stairType: StairType; label: string; wall: Wall; offset: number; rearClearance?: number; width: number; depth: number; risers?: number; flight1Risers?: number; flight2Risers?: number; treadDepth?: number; landingDepth?: number; turnDirection?: 'left' | 'right'; summary: string[]; source: string };
 
 interface Props {
   room: RoomData;
@@ -114,6 +114,7 @@ export const PerimeterSurveyGuide: React.FC<Props> = ({ room, onUpdateRoom, onNo
   const [draft, setDraft] = useState<Draft | null>(null);
   const [missing, setMissing] = useState<string[]>([]);
   const [isListening, setIsListening] = useState(false);
+  const [stairForm, setStairForm] = useState({ stairType: 'straight' as StairType, wall: 'top' as Wall, frontClearance: 0, rearClearance: 0, width: 90, depth: 300, flight1Risers: 8, treadDepth: 28, landingDepth: 90, flight2Risers: 8, turnDirection: 'left' as 'left' | 'right' });
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
@@ -145,6 +146,21 @@ export const PerimeterSurveyGuide: React.FC<Props> = ({ room, onUpdateRoom, onNo
     setDraft(result.draft || null);
     setMissing(result.missing);
     onNotify(result.draft ? '定位摘要已建立，确认后才会写入图面。' : `尚缺：${result.missing.join('、')}`);
+  };
+
+  const prepareStair = () => {
+    const definition = STAIR_BLOCK_CATALOG[stairForm.stairType];
+    const risers = stairForm.flight1Risers + (stairForm.stairType === 'straight' ? 0 : stairForm.flight2Risers);
+    const summary = [
+      `${WALL_LABEL[stairForm.wall]}${definition.label}`,
+      `離前牆 ${stairForm.frontClearance}cm／離後牆 ${stairForm.rearClearance}cm`,
+      `寬 ${stairForm.width}cm／總長 ${stairForm.depth}cm`,
+      `第一跑 ${stairForm.flight1Risers} 階／踏階 ${stairForm.treadDepth}cm`,
+    ];
+    if (stairForm.stairType !== 'straight') summary.push(`轉台 ${stairForm.landingDepth}cm／第二跑 ${stairForm.flight2Risers} 階／${stairForm.turnDirection === 'left' ? '左轉' : '右轉'}`);
+    setDraft({ kind: 'stair', stairType: stairForm.stairType, label: definition.label, wall: stairForm.wall, offset: stairForm.frontClearance, rearClearance: stairForm.rearClearance, width: stairForm.width, depth: stairForm.depth, risers, flight1Risers: stairForm.flight1Risers, flight2Risers: stairForm.stairType === 'straight' ? 0 : stairForm.flight2Risers, treadDepth: stairForm.treadDepth, landingDepth: stairForm.stairType === 'straight' ? 0 : stairForm.landingDepth, turnDirection: stairForm.stairType === 'straight' ? undefined : stairForm.turnDirection, summary, source: '樓梯尺寸表單' });
+    setMissing([]);
+    onNotify('樓梯定位摘要已建立，確認後才會貼附到目前空間。');
   };
 
   const confirm = () => {
@@ -180,7 +196,7 @@ export const PerimeterSurveyGuide: React.FC<Props> = ({ room, onUpdateRoom, onNo
     } else {
       const horizontal = draft.wall === 'top' || draft.wall === 'bottom';
       const definition = STAIR_BLOCK_CATALOG[draft.stairType];
-      const block: PlacedBlockItem = { id: `guided-stair-${now}`, blockId: definition.blockId, name: draft.label, category: 'detail_joint', subCategory: `stair:${draft.stairType}`, x: horizontal ? draft.offset : draft.wall === 'left' ? 0 : Math.max(0, room.width - draft.width), y: horizontal ? (draft.wall === 'top' ? 0 : Math.max(0, room.length - draft.depth)) : draft.offset, widthCm: horizontal ? draft.width : draft.depth, depthCm: horizontal ? draft.depth : draft.width, cadLayer: 'A-STAIR', colorIndex: 3, rotationDeg: horizontal ? 0 : 90, snappedTo: WALL_LABEL[draft.wall], tags: [`stairType:${draft.stairType}`, `risers:${draft.risers || 'unconfirmed'}`, `turn:${draft.turnDirection || 'not_applicable'}`, `verification:${definition.verificationStatus}`, `source:${draft.source}`], placedAt: new Date().toISOString() };
+      const block: PlacedBlockItem = { id: `guided-stair-${now}`, blockId: definition.blockId, name: draft.label, category: 'detail_joint', subCategory: `stair:${draft.stairType}`, x: horizontal ? draft.offset : draft.wall === 'left' ? 0 : Math.max(0, room.width - draft.width), y: horizontal ? (draft.wall === 'top' ? 0 : Math.max(0, room.length - draft.depth - (draft.rearClearance || 0))) : draft.offset, widthCm: horizontal ? draft.width : draft.depth, depthCm: horizontal ? draft.depth : draft.width, cadLayer: 'A-STAIR', colorIndex: 3, rotationDeg: horizontal ? 0 : 90, snappedTo: WALL_LABEL[draft.wall], tags: [`stairType:${draft.stairType}`, `frontClearance:${draft.offset}`, `rearClearance:${draft.rearClearance || 0}`, `flight1Risers:${draft.flight1Risers || draft.risers || 'unconfirmed'}`, `treadDepth:${draft.treadDepth || 'unconfirmed'}`, `landingDepth:${draft.landingDepth || 0}`, `flight2Risers:${draft.flight2Risers || 0}`, `risers:${draft.risers || 'unconfirmed'}`, `turn:${draft.turnDirection || 'not_applicable'}`, `verification:${definition.verificationStatus}`, `source:${draft.source}`], placedAt: new Date().toISOString() };
       onUpdateRoom({ ...room, placedBlocks: [...(room.placedBlocks || []), block], lastUpdated: new Date().toISOString() });
     }
     onNotify(`✓ 已写入：${draft.summary.join(' · ')}`);
@@ -208,23 +224,26 @@ export const PerimeterSurveyGuide: React.FC<Props> = ({ room, onUpdateRoom, onNo
               <span className="text-[10px] text-[#DDD7CE]/70">先選類型，再改牆面與尺寸</span>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {([
-                ['straight', '直梯', '北牆直梯，離牆角0，寬90，總長300，共16階'],
-                ['l_shape', 'L 型梯', '北牆L型梯，離牆角0，寬90，總長300，共16階，左轉'],
-                ['u_shape', 'U 型梯', '北牆U型梯，離牆角0，寬180，總長300，共16階，左轉'],
-                ['spiral', '旋轉梯', '北牆旋轉梯，離牆角0，寬180，總長180，共16階，左轉'],
-              ] as const).map(([type, label, command]) => (
+              {([['straight', '直梯'], ['l_shape', 'L 型梯'], ['u_shape', 'U 型梯'], ['spiral', '旋轉梯']] as const).map(([type, label]) => (
                 <button
                   key={type}
                   type="button"
                   aria-label={`插入${label}`}
-                  onClick={() => { setText(command); prepare(command); }}
-                  className="min-h-12 rounded-xl border border-amber-400/40 bg-[#182216] px-3 py-2 text-sm font-black text-amber-100 hover:bg-amber-500 hover:text-black"
+                  onClick={() => setStairForm((value) => ({ ...value, stairType: type }))}
+                  className={`min-h-12 rounded-xl border px-3 py-2 text-sm font-black ${stairForm.stairType === type ? 'border-amber-300 bg-amber-500 text-black' : 'border-amber-400/40 bg-[#182216] text-amber-100'}`}
                 >
                   ＋ {label}
                 </button>
               ))}
             </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+              <label className="text-[10px] text-[#DDD7CE]">貼附牆面<select aria-label="樓梯貼附牆面" value={stairForm.wall} onChange={(e) => setStairForm({ ...stairForm, wall: e.target.value as Wall })} className="mt-1 w-full rounded-lg bg-[#10170f] p-2 text-sm text-white"><option value="top">北／上牆</option><option value="right">東／右牆</option><option value="bottom">南／下牆</option><option value="left">西／左牆</option></select></label>
+              {([
+                ['離前牆', 'frontClearance'], ['離後牆', 'rearClearance'], ['梯寬', 'width'], ['總長', 'depth'], ['第一跑階數', 'flight1Risers'], ['踏階深', 'treadDepth'], ['轉台深', 'landingDepth'], ['第二跑階數', 'flight2Risers'],
+              ] as const).map(([label, key]) => <label key={key} className="text-[10px] text-[#DDD7CE]">{label}<input aria-label={`樓梯${label}`} type="number" inputMode="decimal" value={stairForm[key]} onChange={(e) => setStairForm({ ...stairForm, [key]: Math.max(0, Number(e.target.value) || 0) })} className="mt-1 w-full rounded-lg border border-[#3F5B63]/60 bg-[#10170f] p-2 text-sm font-bold text-white outline-none" /></label>)}
+              {stairForm.stairType !== 'straight' && <label className="text-[10px] text-[#DDD7CE]">轉向<select aria-label="樓梯轉向" value={stairForm.turnDirection} onChange={(e) => setStairForm({ ...stairForm, turnDirection: e.target.value as 'left' | 'right' })} className="mt-1 w-full rounded-lg bg-[#10170f] p-2 text-sm text-white"><option value="left">左轉</option><option value="right">右轉</option></select></label>}
+            </div>
+            <button type="button" onClick={prepareStair} className="mt-3 min-h-12 w-full rounded-xl bg-amber-500 px-4 text-sm font-black text-black">建立樓梯定位，預覽後貼附</button>
           </div>
 
           <div className="grid grid-cols-4 gap-2">
