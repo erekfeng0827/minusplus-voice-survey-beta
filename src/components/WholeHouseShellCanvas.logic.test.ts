@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { appendProjectShellSegment, deleteProjectShellSegment, updateProjectShellPoint } from './WholeHouseShellCanvas';
+import { appendProjectShellSegment, deleteProjectShellSegment, updateProjectShellPoint, wholeHouseFurniturePolygons } from './WholeHouseShellCanvas';
 import type { ProjectShell } from '../types';
 
 const shell: ProjectShell = {
@@ -19,4 +19,8 @@ assert.deepEqual(deleteProjectShellSegment(shell, 's1').segments.map((item) => i
 const appended = appendProjectShellSegment(shell, { x: 10, y: 20 }, { x: 30, y: 40 });
 assert.equal(appended.segments.length, 3);
 assert.deepEqual(appended.segments[2].points, [{ x: 10, y: 20 }, { x: 30, y: 40 }]);
+const roomWithFurniture = { id: 'room-1', roomName: '客厅', width: 400, length: 500, height: 280, ceilingDrop: 230, beamHeight: 265, wallThickness: 15, columns: [], beams: [], doors: [], windows: [], voiceMemos: [], electricalPoints: [], lightingPoints: [], virtualAnnotations: [], furniture: [], lastUpdated: new Date().toISOString(), placedBlocks: [{ id: 'sofa', blockId: 'sofa', name: '沙发', category: 'furniture' as const, subCategory: 'sofa', x: 10, y: 20, widthCm: 100, depthCm: 50, heightCm: 80, elevationCm: 0, cadLayer: 'FURNITURE', colorIndex: 3, rotationDeg: 0, snappedTo: 'test', tags: [], placedAt: new Date().toISOString() }] };
+const polygons = wholeHouseFurniturePolygons([roomWithFurniture], [{ roomId: 'room-1', roomName: '客厅', x: 500, y: 100, rotation: 0, width: 400, length: 500, effectiveWidth: 400, effectiveLength: 500, color: '#fff', isBaseRoom: true, sharedWalls: [] }]);
+assert.deepEqual(polygons[0].points[0], { x: 510, y: 120 });
+assert.deepEqual(polygons[0].points[2], { x: 610, y: 170 });
 console.log('WholeHouseShellCanvas editable geometry: PASS');

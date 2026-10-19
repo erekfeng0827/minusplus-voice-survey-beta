@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ProjectShell } from '../types';
+import { ProjectShell, RoomData, StitchedRoomPlacement } from '../types';
 import { Check, MousePointer2, PenLine, RotateCcw, Trash2, X } from 'lucide-react';
 import { readFileFromIndexedDb } from './FloorplanPdfImportModal';
 
@@ -8,6 +8,8 @@ interface WholeHouseShellCanvasProps {
   compact?: boolean;
   editable?: boolean;
   onChange?: (shell: ProjectShell) => void;
+  rooms?: RoomData[];
+  placements?: StitchedRoomPlacement[];
 }
 
 export function updateProjectShellPoint(shell: ProjectShell, segmentId: string, pointIndex: number, axis: 'x' | 'y', raw: number): ProjectShell {
@@ -24,7 +26,27 @@ export function appendProjectShellSegment(shell: ProjectShell, start: { x: numbe
   return { ...shell, segments: [...shell.segments, { id, layer: 'WALL-MANUAL', entityType: 'LINE', points: [start, end], closed: false }] };
 }
 
-export const WholeHouseShellCanvas: React.FC<WholeHouseShellCanvasProps> = ({ shell, compact = false, editable = false, onChange }) => {
+export function wholeHouseFurniturePolygons(rooms: RoomData[], placements: StitchedRoomPlacement[]) {
+  return placements.flatMap((placement) => {
+    const room = rooms.find((candidate) => candidate.id === placement.roomId);
+    if (!room) return [];
+    return (room.placedBlocks || []).map((item) => {
+      const itemRadians = ((item.rotationDeg || 0) * Math.PI) / 180;
+      const roomRadians = (placement.rotation * Math.PI) / 180;
+      const corners = [{ x: 0, y: 0 }, { x: item.widthCm, y: 0 }, { x: item.widthCm, y: item.depthCm }, { x: 0, y: item.depthCm }].map((corner) => {
+        const localX = item.x + corner.x * Math.cos(itemRadians) - corner.y * Math.sin(itemRadians);
+        const localY = item.y + corner.x * Math.sin(itemRadians) + corner.y * Math.cos(itemRadians);
+        return {
+          x: placement.x + localX * Math.cos(roomRadians) - localY * Math.sin(roomRadians),
+          y: placement.y + localX * Math.sin(roomRadians) + localY * Math.cos(roomRadians),
+        };
+      });
+      return { id: `${placement.roomId}:${item.id}`, name: item.name, roomName: room.roomName, points: corners };
+    });
+  });
+}
+
+export const WholeHouseShellCanvas: React.FC<WholeHouseShellCanvasProps> = ({ shell, compact = false, editable = false, onChange, rooms = [], placements = [] }) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<ProjectShell | null>(null);
   const [underlayUrl, setUnderlayUrl] = useState<string | null>(null);
@@ -35,6 +57,7 @@ export const WholeHouseShellCanvas: React.FC<WholeHouseShellCanvasProps> = ({ sh
   const pad = Math.max(shell.width, shell.length) * 0.035 || 20;
   const viewBox = `${-pad} ${-pad} ${shell.width + pad * 2} ${shell.length + pad * 2}`;
   const segmentCountLabel = useMemo(() => `${shell.segments.length} 条线段`, [shell.segments.length]);
+  const furniturePolygons = useMemo(() => wholeHouseFurniturePolygons(rooms, placements), [rooms, placements]);
 
   useEffect(() => {
     let objectUrl: string | null = null;
@@ -102,6 +125,9 @@ export const WholeHouseShellCanvas: React.FC<WholeHouseShellCanvasProps> = ({ sh
           </g>
           <g fill="#E0A83C" fillOpacity="0.06" stroke="#E0A83C" strokeOpacity="0.35" strokeWidth="1" vectorEffect="non-scaling-stroke">
             {shell.zones.map((zone) => <polygon key={zone.id} points={zone.polygon.map((p) => `${p.x},${p.y}`).join(' ')} />)}
+          </g>
+          <g fill="#B4503A" fillOpacity="0.16" stroke="#B4503A" strokeWidth="1.5" vectorEffect="non-scaling-stroke">
+            {furniturePolygons.map((item) => <polygon key={item.id} points={item.points.map((point) => `${point.x},${point.y}`).join(' ')}><title>{item.roomName} · {item.name}</title></polygon>)}
           </g>
         </svg>
         {editable && selected && <div className="survey-card absolute inset-x-2 bottom-2 max-h-[52%] overflow-y-auto rounded-2xl border survey-border p-3 shadow-2xl sm:left-auto sm:right-4 sm:w-80">
