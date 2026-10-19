@@ -4888,7 +4888,7 @@ if __name__ == "__main__":
   ;; 4. 插入尺寸引線與 1:50 A3 驗收章
   (command "-LAYER" "S" "DIMENSION" "")
   (command "DIMLINEAR" (list 0 0) (list 480 0) (list 240 -25))
-  (command "TEXT" (list 0 565) 7 0 "CERTIFIED: V-01~10 PASSED | 5X: 265/230/215")
+  (command "TEXT" (list 0 565) 7 0 "CANDIDATE: CAD READBACK REQUIRED | 5X: 265/230/215")
   (setvar "CMDECHO" 1)
   (princ "\\n✓ 晶晶自動繪圖完成！比例尺 1:50")
   (princ)
