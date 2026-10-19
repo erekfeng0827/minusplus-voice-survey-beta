@@ -55,6 +55,7 @@ import {
   getColumnCoordinates,
 } from '../utils/wallUtils';
 import { removeLinkedFurniture, syncFurnitureFromPlacedBlocks } from '../utils/placedBlockFurnitureSync';
+import { doorLeafGeometry, openingTransform } from '../utils/openingPlanGeometry';
 
 export interface ClearanceViolation {
   id: string;
@@ -2085,41 +2086,18 @@ export const StakingCanvas2D: React.FC<StakingCanvas2DProps> = ({
 
             {/* Doors Opening */}
             {room.doors.map((door) => {
-              if (door.wall === 'bottom') {
-                return (
-                  <g key={door.id} transform={`translate(${door.offset}, ${room.length})`}>
-                    <line x1="0" y1="0" x2={door.width} y2="0" stroke="#0F172A" strokeWidth="12" />
-                    <line x1="0" y1="0" x2="0" y2={-door.width} stroke="#60A5FA" strokeWidth="2" strokeDasharray="3 2" />
-                    <path
-                      d={`M 0 ${-door.width} A ${door.width} ${door.width} 0 0 1 ${door.width} 0`}
-                      fill="none"
-                      stroke="#3B82F6"
-                      strokeWidth="1.5"
-                    />
-                    <text x={door.width / 2} y="18" fill="#93C5FD" fontSize="10" textAnchor="middle">
-                      {door.name} ({door.width}cm)
-                    </text>
-                  </g>
-                );
-              }
-              if (door.wall === 'right') {
-                return (
-                  <g key={door.id} transform={`translate(${room.width}, ${door.offset})`}>
-                    <line x1="0" y1="0" x2="0" y2={door.width} stroke="#0F172A" strokeWidth="12" />
-                    <line x1="0" y1="0" x2={-door.width} y2="0" stroke="#60A5FA" strokeWidth="2" strokeDasharray="3 2" />
-                    <path
-                      d={`M ${-door.width} 0 A ${door.width} ${door.width} 0 0 1 0 ${door.width}`}
-                      fill="none"
-                      stroke="#3B82F6"
-                      strokeWidth="1.5"
-                    />
-                    <text x="24" y={door.width / 2 + 4} fill="#93C5FD" fontSize="10">
-                      {door.name}
-                    </text>
-                  </g>
-                );
-              }
-              return null;
+              const leaf = doorLeafGeometry(door);
+              return (
+                <g key={door.id} transform={openingTransform(door.wall, door.offset, room.width, room.length)} data-opening-wall={door.wall}>
+                  <line x1="0" y1="0" x2={door.width} y2="0" stroke="#0F172A" strokeWidth="12" />
+                  {leaf.sliding ? (
+                    <><line x1="4" y1="-3" x2={door.width - 4} y2="-3" stroke="#60A5FA" strokeWidth="2" /><line x1="4" y1="3" x2={door.width - 4} y2="3" stroke="#60A5FA" strokeWidth="2" /></>
+                  ) : (
+                    <><path d={leaf.leaf} fill="none" stroke="#60A5FA" strokeWidth="2" strokeDasharray="3 2" /><path d={leaf.arc} fill="none" stroke="#3B82F6" strokeWidth="1.5" /></>
+                  )}
+                  <text x={door.width / 2} y={leaf.labelY} fill="#93C5FD" fontSize="10" textAnchor="middle">{door.name} ({door.width}cm)</text>
+                </g>
+              );
             })}
 
             {/* Windows Opening (點擊直接輸入與修改窗戶尺寸) */}
@@ -2129,7 +2107,8 @@ export const StakingCanvas2D: React.FC<StakingCanvas2DProps> = ({
               return (
                 <g
                   key={win.id}
-                  transform={`translate(${win.offset}, 0)`}
+                  transform={openingTransform(win.wall, win.offset, room.width, room.length)}
+                  data-opening-wall={win.wall}
                   className="cursor-pointer group"
                   onClick={(e) => {
                     e.stopPropagation();
