@@ -1,4 +1,4 @@
-import { RoomData, Door, StitchedRoomPlacement, StitchedFloorPlanResult } from '../types';
+import { RoomData, Door, ProjectShell, StitchedRoomPlacement, StitchedFloorPlanResult } from '../types';
 
 export interface StitchGraphNode {
   room: RoomData;
@@ -1260,7 +1260,8 @@ export function calculateStitchedFloorPlan(
 export function generateFullHouseDxfString(
   rooms: RoomData[],
   stitchedResult: StitchedFloorPlanResult,
-  projectName: string = '星玥灣-全室合併平面放樣圖'
+  projectName: string = '全室合併平面放樣圖',
+  projectShell?: ProjectShell | null,
 ): string {
   let dxf = '';
 
@@ -1268,7 +1269,7 @@ export function generateFullHouseDxfString(
   dxf += '0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n9\n$INSUNITS\n70\n4\n0\nENDSEC\n';
 
   // 2. TABLES (LAYERS)
-  dxf += '0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLAYER\n70\n8\n';
+  dxf += '0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLAYER\n70\n10\n';
   const layers = [
     { name: 'WALL', color: 7 }, // White 0.50mm
     { name: 'SHARED_WALL', color: 6 }, // Magenta 0.35mm (共用隔間牆)
@@ -1278,6 +1279,8 @@ export function generateFullHouseDxfString(
     { name: 'ROOM_LABEL', color: 2 }, // Yellow
     { name: 'ELECTRICAL', color: 5 }, // Blue
     { name: 'CEILING_STEP', color: 4 },
+    { name: 'IMPORTED_SHELL', color: 8 },
+    { name: 'FURNITURE', color: 3 },
   ];
 
   layers.forEach((ly) => {
@@ -1295,6 +1298,22 @@ export function generateFullHouseDxfString(
   const text = (ly: string, x: number, y: number, height: number, val: string) => {
     return `0\nTEXT\n8\n${ly}\n10\n${(x * 10).toFixed(1)}\n20\n${(y * 10).toFixed(1)}\n30\n0.0\n40\n${height * 10}\n1\n${val}\n`;
   };
+
+  if (projectShell) {
+    for (const segment of projectShell.segments) {
+      for (let pointIndex = 1; pointIndex < segment.points.length; pointIndex += 1) {
+        const start = segment.points[pointIndex - 1];
+        const end = segment.points[pointIndex];
+        dxf += line('IMPORTED_SHELL', start.x, start.y, end.x, end.y);
+      }
+      if (segment.closed && segment.points.length > 2) {
+        const first = segment.points[0];
+        const last = segment.points[segment.points.length - 1];
+        if (first.x !== last.x || first.y !== last.y) dxf += line('IMPORTED_SHELL', last.x, last.y, first.x, first.y);
+      }
+    }
+    dxf += text('IMPORTED_SHELL', 0, -15, 6, `SOURCE_SHELL:${projectShell.sourceFileName} | ${projectShell.sourceFormat} | ${projectShell.unitName}`);
+  }
 
   // 繪製每個放置好的房間
   for (const placement of stitchedResult.placements) {
@@ -1339,6 +1358,29 @@ export function generateFullHouseDxfString(
         }
       }
     }
+
+    for (const item of room.placedBlocks || []) {
+      const blockCorners = [
+        { x: 0, y: 0 },
+        { x: item.widthCm, y: 0 },
+        { x: item.widthCm, y: item.depthCm },
+        { x: 0, y: item.depthCm },
+      ].map((corner) => {
+        const radians = ((item.rotationDeg || 0) * Math.PI) / 180;
+        const local = {
+          x: item.x + corner.x * Math.cos(radians) - corner.y * Math.sin(radians),
+          y: item.y + corner.x * Math.sin(radians) + corner.y * Math.cos(radians),
+        };
+        const roomRotated = rotatePoint(local.x, local.y, placement.rotation);
+        return { x: placement.x + roomRotated.x, y: placement.y + roomRotated.y };
+      });
+      for (let cornerIndex = 0; cornerIndex < blockCorners.length; cornerIndex += 1) {
+        const start = blockCorners[cornerIndex];
+        const end = blockCorners[(cornerIndex + 1) % blockCorners.length];
+        dxf += line('FURNITURE', start.x, start.y, end.x, end.y);
+      }
+      dxf += text('FURNITURE', blockCorners[0].x, blockCorners[0].y, 5, `${item.name} ${item.widthCm}x${item.depthCm}cm`);
+    }
   }
 
   // 全室總開間進深尺寸線 (Outer Overall Bounding Dimensions)
@@ -1353,4 +1395,22 @@ export function generateFullHouseDxfString(
 
   dxf += '0\nENDSEC\n0\nEOF\n';
   return dxf;
+}
+
+export function downloadFullHouseDxfFile(
+  rooms: RoomData[],
+  stitchedResult: StitchedFloorPlanResult,
+  projectName: string,
+  projectShell?: ProjectShell | null,
+) {
+  const content = generateFullHouseDxfString(rooms, stitchedResult, projectName, projectShell);
+  const blob = new Blob([content], { type: 'application/dxf;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `${projectName.replace(/[\\/:*?"<>|\s]+/g, '_')}_全案底圖與配置.dxf`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
 }

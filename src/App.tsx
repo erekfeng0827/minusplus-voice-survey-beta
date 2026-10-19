@@ -69,6 +69,7 @@ import { CleanLaunchScreen } from './components/CleanLaunchScreen';
 import { WholeHouseShellCanvas } from './components/WholeHouseShellCanvas';
 import { useAuth } from './context/AuthContext';
 import { downloadDxfFile } from './utils/dxfExporter';
+import { downloadFullHouseDxfFile } from './utils/multiRoomStitcher';
 import { createCleanRoomFromTemplate, ROOM_TEMPLATES } from './data/roomTemplates';
 
 import {
@@ -596,7 +597,7 @@ export default function App() {
                   <button onClick={() => { setIsAutoSpaceLayoutOpen(true); setIsLayoutToolsOpen(false); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-bold text-[#F8F8F6] hover:bg-[#23301F]"><LayoutGrid className="h-4 w-4 text-[#E0A83C]" />自動產生配置</button>
                   <button onClick={() => { setIsPersonalBlockLibraryOpen(true); setIsLayoutToolsOpen(false); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-bold text-[#F8F8F6] hover:bg-[#23301F]"><FolderPlus className="h-4 w-4 text-[#D99AA2]" />家具／櫃體圖塊</button>
                   <button onClick={() => { setIsSketchUpOpen(true); setIsLayoutToolsOpen(false); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-bold text-[#F8F8F6] hover:bg-[#23301F]"><Box className="h-4 w-4 text-[#3F5B63]" />結構白模 DXF</button>
-                  <button onClick={() => { downloadDxfFile(currentRoom, '室內設計_放樣圖'); setIsLayoutToolsOpen(false); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-bold text-[#F8F8F6] hover:bg-[#23301F]"><Download className="h-4 w-4 text-[#3F5B63]" />匯出 DXF</button>
+                  <button onClick={() => { downloadFullHouseDxfFile(rooms, stitchedPlan, projectName, projectShell); setIsLayoutToolsOpen(false); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-bold text-[#F8F8F6] hover:bg-[#23301F]"><Download className="h-4 w-4 text-[#3F5B63]" />全案 DXF（底圖＋配置）</button>
                   <button onClick={() => { setIsBatchSheetAssemblerOpen(true); setIsLayoutToolsOpen(false); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-bold text-[#F8F8F6] hover:bg-[#23301F]"><BookOpen className="h-4 w-4 text-[#E0A83C]" />CAD 交付中心</button>
                 </div>}
               </div>
