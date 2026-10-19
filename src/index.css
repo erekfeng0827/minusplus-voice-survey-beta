@@ -100,6 +100,28 @@ body {
   overflow-x: hidden;
 }
 
+html, body, #root {
+  width: 100%;
+  min-height: 100%;
+}
+
+.survey-app {
+  height: 100dvh;
+  min-height: 100svh;
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.survey-safe-header {
+  padding-top: max(0.625rem, env(safe-area-inset-top, 0px));
+}
+
+.survey-safe-toast {
+  top: max(6rem, calc(env(safe-area-inset-top, 0px) + 4.75rem));
+  max-width: calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 1.5rem);
+}
+
 .survey-app { background: var(--survey-app-bg); color: var(--survey-text); }
 .survey-header, .survey-sidebar, .survey-card { background: var(--survey-surface); border-color: var(--survey-border); }
 .survey-nav, .survey-review { background: var(--survey-review-bg); border-color: var(--survey-border); }

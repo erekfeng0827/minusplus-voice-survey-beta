@@ -454,7 +454,7 @@ export default function App() {
 
   return (
     // 🌟 100% 滿版無邊際畫布 (Overflow Hidden)
-    <div data-theme={theme} className="survey-app survey-light-surface relative w-full h-screen overflow-hidden antialiased selection:bg-[#B4503A]/25 selection:text-[#23301F]">
+    <div data-theme={theme} className="survey-app survey-light-surface relative w-full overflow-hidden antialiased selection:bg-[#B4503A]/25 selection:text-[#23301F]">
       
       {/* 🌟 完美植入 CIS 字體系統 */}
       <style>{`
@@ -473,7 +473,7 @@ export default function App() {
       `}</style>
 
       {toastMessage && (
-        <div className="fixed top-24 left-1/2 transform -translate-x-1/2 z-[120] bg-[#23301F]/95 backdrop-blur-xl border border-[#3F5B63] text-[#F8F8F6] px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 text-sm animate-fadeIn">
+        <div className="survey-safe-toast fixed left-1/2 transform -translate-x-1/2 z-[120] bg-[#23301F]/95 backdrop-blur-xl border border-[#3F5B63] text-[#F8F8F6] px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 text-sm animate-fadeIn">
           <CheckCircle2 className="w-5 h-5 text-[#E0A83C] flex-shrink-0" />
           <span className="font-medium" style={{ fontFamily: 'var(--mp-font-cn-body)' }}>{toastMessage}</span>
         </div>
