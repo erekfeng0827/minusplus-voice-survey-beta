@@ -10,20 +10,21 @@ const windowItem = parsePerimeterCommand('北牆有一扇氣密窗，離左牆�
 assert.equal(windowItem.draft?.kind, 'window');
 assert.equal(windowItem.draft?.wall, 'top');
 
-const stair = parsePerimeterCommand('右牆有樓梯，離起點100，寬90，總長320，共18階');
+const stair = parsePerimeterCommand('右牆有樓梯，離起點100，離後牆20，寬90，總長320，共18階，踏階28');
 assert.equal(stair.draft?.kind, 'stair');
 assert.equal(stair.draft?.wall, 'right');
 assert.equal(stair.draft?.kind === 'stair' ? stair.draft.stairType : '', 'straight');
 
-const lStair = parsePerimeterCommand('左牆有L型梯，離起點40，寬95，總長360，共18階，右轉');
+const lStair = parsePerimeterCommand('左牆有L型梯，離起點40，離後牆25，寬95，總長360，第一跑8階，踏階28，轉台90，第二跑10階，右轉');
 assert.equal(lStair.draft?.kind === 'stair' ? lStair.draft.stairType : '', 'l_shape');
+assert.equal(lStair.draft?.kind === 'stair' ? lStair.draft.flight2Risers : 0, 10);
 assert.equal(lStair.missing.length, 0);
 
-const missingTurn = parsePerimeterCommand('北牆有U型梯，離起點60，寬180，總長400，共20階');
+const missingTurn = parsePerimeterCommand('北牆有U型梯，離起點60，離後牆20，寬180，總長400，第一跑10階，踏階28，轉台100，第二跑10階');
 assert.equal(missingTurn.draft, undefined);
 assert.ok(missingTurn.missing.includes('轉向（左轉或右轉）'));
 
-const spiral = parsePerimeterCommand('南牆有旋轉梯，離起點50，寬160，總長160，共16階，左轉');
+const spiral = parsePerimeterCommand('南牆有旋轉梯，離起點50，離後牆30，寬160，總長160，共16階，左轉');
 assert.equal(spiral.draft?.kind === 'stair' ? spiral.draft.stairType : '', 'spiral');
 
 const column = parsePerimeterCommand('北牆有RC結構柱，離左牆角120，寬50，深45，高280');
@@ -38,6 +39,10 @@ const cabinet = parsePerimeterCommand('左牆有玄關鞋櫃，離起點60，寬
 assert.equal(cabinet.draft?.kind, 'cabinet');
 assert.equal(cabinet.draft?.kind === 'cabinet' ? cabinet.draft.elevation : 0, 20);
 assert.equal(cabinet.missing.length, 0);
+
+const fullWallCabinet = parsePerimeterCommand('右牆衣櫃離起點20，從牆到牆做滿，深60，高240，分14格');
+assert.equal(fullWallCabinet.draft?.kind === 'cabinet' ? fullWallCabinet.draft.fillWall : false, true);
+assert.equal(fullWallCabinet.draft?.kind === 'cabinet' ? fullWallCabinet.draft.compartments : 0, 14);
 
 const incomplete = parsePerimeterCommand('左牆有一扇窗');
 assert.equal(incomplete.draft, undefined);
