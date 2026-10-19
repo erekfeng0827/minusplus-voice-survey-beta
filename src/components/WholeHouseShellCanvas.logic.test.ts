@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { appendProjectShellSegment, deleteProjectShellSegment, updateProjectShellPoint, wholeHouseFurniturePolygons } from './WholeHouseShellCanvas';
+import { appendProjectShellSegment, deleteProjectShellSegment, findFurnitureCollisions, polygonsOverlap, updateProjectShellPoint, wholeHouseFurniturePolygons } from './WholeHouseShellCanvas';
 import type { ProjectShell } from '../types';
 
 const shell: ProjectShell = {
@@ -23,4 +23,7 @@ const roomWithFurniture = { id: 'room-1', roomName: '客厅', width: 400, length
 const polygons = wholeHouseFurniturePolygons([roomWithFurniture], [{ roomId: 'room-1', roomName: '客厅', x: 500, y: 100, rotation: 0, width: 400, length: 500, effectiveWidth: 400, effectiveLength: 500, color: '#fff', isBaseRoom: true, sharedWalls: [] }]);
 assert.deepEqual(polygons[0].points[0], { x: 510, y: 120 });
 assert.deepEqual(polygons[0].points[2], { x: 610, y: 170 });
+assert.equal(polygonsOverlap(polygons[0].points, [{ x: 600, y: 150 }, { x: 700, y: 150 }, { x: 700, y: 250 }, { x: 600, y: 250 }]), true);
+assert.equal(polygonsOverlap(polygons[0].points, [{ x: 700, y: 300 }, { x: 800, y: 300 }, { x: 800, y: 400 }, { x: 700, y: 400 }]), false);
+assert.deepEqual([...findFurnitureCollisions([polygons[0], { ...polygons[0], id: 'other', points: polygons[0].points.map((point) => ({ x: point.x + 20, y: point.y })) }])].sort(), ['other', polygons[0].id].sort());
 console.log('WholeHouseShellCanvas editable geometry: PASS');

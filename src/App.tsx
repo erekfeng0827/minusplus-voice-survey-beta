@@ -549,7 +549,7 @@ export default function App() {
             <div className="survey-light-surface flex h-full w-full flex-col items-center justify-center p-5 text-center">
               <div className={`survey-card w-full rounded-3xl border p-4 shadow-xl sm:p-6 ${projectShell ? 'max-w-5xl h-[min(76vh,760px)]' : 'max-w-xl'}`}>
                 {projectShell ? <>
-                  <WholeHouseShellCanvas shell={projectShell} editable onChange={handleUpdateProjectShell} rooms={rooms} placements={stitchedPlan.placements} />
+                  <WholeHouseShellCanvas shell={projectShell} editable onChange={handleUpdateProjectShell} rooms={rooms} placements={stitchedPlan.placements} onUpdateRoom={handleUpdateRoom} />
                   <button onClick={() => { setCleanStep('3_layout'); setWorkflow('layout'); setShowWholeHouse(true); }} className="mt-3 w-full rounded-xl bg-[#B4503A] px-5 py-3 text-sm font-bold text-white">底圖正確，進入平面配置</button>
                 </> : <>
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[#3F5B63]/40 bg-[#3F5B63]/10 text-[#3F5B63]">
@@ -605,7 +605,7 @@ export default function App() {
               {activeMainTab === '3d_simulation' ? (
                 <ThreeDSceneView room={currentRoom} onUpdateRoom={handleUpdateRoom} onNotify={showToast} onOpenCustomBlocks={() => setIsCustomBlockOpen(true)} />
               ) : projectShell && showWholeHouse ? (
-                <div className="h-full w-full p-3 pt-16"><WholeHouseShellCanvas shell={projectShell} editable onChange={handleUpdateProjectShell} rooms={rooms} placements={stitchedPlan.placements} /></div>
+                <div className="h-full w-full p-3 pt-16"><WholeHouseShellCanvas shell={projectShell} editable onChange={handleUpdateProjectShell} rooms={rooms} placements={stitchedPlan.placements} onUpdateRoom={handleUpdateRoom} /></div>
               ) : (
                 <StakingCanvas2D room={currentRoom} activeViewMode={canvasViewMode} setActiveViewMode={setCanvasViewMode} onSelectVoiceMemo={setSelectedVoiceMemo} onUpdateRoom={handleUpdateRoom} onSwitchTo3D={() => setActiveMainTab('3d_simulation')} draggedBlock={draggedFurnitureBlock} onDropBlock={() => setDraggedFurnitureBlock(null)} onDragCancel={() => setDraggedFurnitureBlock(null)} onNotify={showToast} simpleMode />
               )}

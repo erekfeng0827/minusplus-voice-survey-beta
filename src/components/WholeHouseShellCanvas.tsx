@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ProjectShell, RoomData, StitchedRoomPlacement } from '../types';
 import { Check, MousePointer2, PenLine, RotateCcw, Trash2, X } from 'lucide-react';
 import { readFileFromIndexedDb } from './FloorplanPdfImportModal';
+import { syncFurnitureFromPlacedBlocks } from '../utils/placedBlockFurnitureSync';
 
 interface WholeHouseShellCanvasProps {
   shell: ProjectShell;
@@ -10,6 +11,7 @@ interface WholeHouseShellCanvasProps {
   onChange?: (shell: ProjectShell) => void;
   rooms?: RoomData[];
   placements?: StitchedRoomPlacement[];
+  onUpdateRoom?: (room: RoomData) => void;
 }
 
 export function updateProjectShellPoint(shell: ProjectShell, segmentId: string, pointIndex: number, axis: 'x' | 'y', raw: number): ProjectShell {
@@ -41,23 +43,62 @@ export function wholeHouseFurniturePolygons(rooms: RoomData[], placements: Stitc
           y: placement.y + localX * Math.sin(roomRadians) + localY * Math.cos(roomRadians),
         };
       });
-      return { id: `${placement.roomId}:${item.id}`, name: item.name, roomName: room.roomName, points: corners };
+      return { id: `${placement.roomId}:${item.id}`, roomId: placement.roomId, blockId: item.id, name: item.name, roomName: room.roomName, points: corners };
     });
   });
 }
 
-export const WholeHouseShellCanvas: React.FC<WholeHouseShellCanvasProps> = ({ shell, compact = false, editable = false, onChange, rooms = [], placements = [] }) => {
+const projectPolygon = (points: Array<{ x: number; y: number }>, axis: { x: number; y: number }) => {
+  const values = points.map((point) => point.x * axis.x + point.y * axis.y);
+  return { min: Math.min(...values), max: Math.max(...values) };
+};
+
+export function polygonsOverlap(a: Array<{ x: number; y: number }>, b: Array<{ x: number; y: number }>): boolean {
+  const axes: Array<{ x: number; y: number }> = [];
+  for (const polygon of [a, b]) {
+    for (let index = 0; index < polygon.length; index += 1) {
+      const start = polygon[index];
+      const end = polygon[(index + 1) % polygon.length];
+      const dx = end.x - start.x;
+      const dy = end.y - start.y;
+      const length = Math.hypot(dx, dy) || 1;
+      axes.push({ x: -dy / length, y: dx / length });
+    }
+  }
+  return axes.every((axis) => {
+    const pa = projectPolygon(a, axis);
+    const pb = projectPolygon(b, axis);
+    return pa.max > pb.min && pb.max > pa.min;
+  });
+}
+
+export function findFurnitureCollisions(items: ReturnType<typeof wholeHouseFurniturePolygons>): Set<string> {
+  const collisions = new Set<string>();
+  items.forEach((item, index) => items.slice(index + 1).forEach((other) => {
+    if (!polygonsOverlap(item.points, other.points)) return;
+    collisions.add(item.id);
+    collisions.add(other.id);
+  }));
+  return collisions;
+}
+
+export const WholeHouseShellCanvas: React.FC<WholeHouseShellCanvasProps> = ({ shell, compact = false, editable = false, onChange, rooms = [], placements = [], onUpdateRoom }) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<ProjectShell | null>(null);
   const [underlayUrl, setUnderlayUrl] = useState<string | null>(null);
   const [drawingStart, setDrawingStart] = useState<{ x: number; y: number } | null>(null);
   const [drawingMode, setDrawingMode] = useState(false);
+  const [selectedFurnitureId, setSelectedFurnitureId] = useState<string | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const selected = shell.segments.find((segment) => segment.id === selectedId) || null;
   const pad = Math.max(shell.width, shell.length) * 0.035 || 20;
   const viewBox = `${-pad} ${-pad} ${shell.width + pad * 2} ${shell.length + pad * 2}`;
   const segmentCountLabel = useMemo(() => `${shell.segments.length} 条线段`, [shell.segments.length]);
   const furniturePolygons = useMemo(() => wholeHouseFurniturePolygons(rooms, placements), [rooms, placements]);
+  const collisionIds = useMemo(() => findFurnitureCollisions(furniturePolygons), [furniturePolygons]);
+  const selectedFurniture = furniturePolygons.find((item) => item.id === selectedFurnitureId) || null;
+  const selectedFurnitureRoom = selectedFurniture ? rooms.find((room) => room.id === selectedFurniture.roomId) : null;
+  const selectedBlock = selectedFurnitureRoom?.placedBlocks?.find((block) => block.id === selectedFurniture?.blockId) || null;
 
   useEffect(() => {
     let objectUrl: string | null = null;
@@ -107,6 +148,12 @@ export const WholeHouseShellCanvas: React.FC<WholeHouseShellCanvasProps> = ({ sh
     setDrawingStart(null);
   };
 
+  const updateFurniture = (field: 'x' | 'y' | 'widthCm' | 'depthCm' | 'rotationDeg', value: number) => {
+    if (!selectedFurnitureRoom || !selectedBlock || !onUpdateRoom || !Number.isFinite(value)) return;
+    const placedBlocks = (selectedFurnitureRoom.placedBlocks || []).map((block) => block.id === selectedBlock.id ? { ...block, [field]: field === 'rotationDeg' ? value : Math.max(0, value) } : block);
+    onUpdateRoom({ ...selectedFurnitureRoom, placedBlocks, furniture: syncFurnitureFromPlacedBlocks(selectedFurnitureRoom.furniture, placedBlocks), lastUpdated: new Date().toISOString() });
+  };
+
   return (
     <div className="survey-card flex h-full w-full min-h-0 flex-col overflow-hidden border">
       <div className="survey-border flex items-center justify-between border-b px-3 py-2 text-xs">
@@ -126,10 +173,14 @@ export const WholeHouseShellCanvas: React.FC<WholeHouseShellCanvasProps> = ({ sh
           <g fill="#E0A83C" fillOpacity="0.06" stroke="#E0A83C" strokeOpacity="0.35" strokeWidth="1" vectorEffect="non-scaling-stroke">
             {shell.zones.map((zone) => <polygon key={zone.id} points={zone.polygon.map((p) => `${p.x},${p.y}`).join(' ')} />)}
           </g>
-          <g fill="#B4503A" fillOpacity="0.16" stroke="#B4503A" strokeWidth="1.5" vectorEffect="non-scaling-stroke">
-            {furniturePolygons.map((item) => <polygon key={item.id} points={item.points.map((point) => `${point.x},${point.y}`).join(' ')}><title>{item.roomName} · {item.name}</title></polygon>)}
+          <g fill="#B4503A" fillOpacity="0.16" strokeWidth="1.5" vectorEffect="non-scaling-stroke">
+            {furniturePolygons.map((item) => <polygon key={item.id} points={item.points.map((point) => `${point.x},${point.y}`).join(' ')} stroke={collisionIds.has(item.id) ? '#ef4444' : selectedFurnitureId === item.id ? '#E0A83C' : '#B4503A'} strokeWidth={collisionIds.has(item.id) || selectedFurnitureId === item.id ? 3 : 1.5} className={onUpdateRoom ? 'cursor-pointer' : undefined} onClick={(event) => { if (!onUpdateRoom) return; event.stopPropagation(); setSelectedFurnitureId(item.id); }}><title>{item.roomName} · {item.name}{collisionIds.has(item.id) ? ' · 配置碰撞' : ''}</title></polygon>)}
           </g>
         </svg>
+        {editable && selectedBlock && selectedFurnitureRoom && <div className="survey-card absolute inset-x-2 bottom-2 max-h-[48%] overflow-y-auto rounded-2xl border survey-border p-3 shadow-2xl sm:left-auto sm:right-4 sm:w-80">
+          <div className="flex items-center justify-between gap-2"><div className="min-w-0"><strong className="survey-text block truncate">{selectedBlock.name}</strong><span className={`text-[10px] ${collisionIds.has(selectedFurnitureId || '') ? 'text-red-500' : 'survey-muted'}`}>{selectedFurnitureRoom.roomName}{collisionIds.has(selectedFurnitureId || '') ? ' · 与其他家具重叠' : ' · 全局配置'}</span></div><button type="button" onClick={() => setSelectedFurnitureId(null)} className="rounded-lg p-2" aria-label="关闭家具编辑"><X className="h-4 w-4" /></button></div>
+          <div className="mt-2 grid grid-cols-2 gap-2">{([['x', 'X', selectedBlock.x], ['y', 'Y', selectedBlock.y], ['widthCm', '宽', selectedBlock.widthCm], ['depthCm', '深', selectedBlock.depthCm], ['rotationDeg', '角度', selectedBlock.rotationDeg || 0]] as const).map(([field, label, value]) => <label key={field} className="survey-muted text-[10px]">{label}（{field === 'rotationDeg' ? '°' : 'cm'}）<input type="number" min="0" step={field === 'rotationDeg' ? 15 : 5} value={value} onChange={(event) => updateFurniture(field, Number(event.target.value))} className="survey-input mt-1 w-full rounded-lg border px-2 py-2 text-sm" /></label>)}</div>
+        </div>}
         {editable && selected && <div className="survey-card absolute inset-x-2 bottom-2 max-h-[52%] overflow-y-auto rounded-2xl border survey-border p-3 shadow-2xl sm:left-auto sm:right-4 sm:w-80">
           <div className="flex items-center justify-between gap-2"><div className="min-w-0"><strong className="survey-text block truncate">{selected.layer}</strong><span className="survey-muted text-[10px]">{selected.entityType} · {selected.points.length} 点</span></div><button type="button" onClick={() => setSelectedId(null)} className="rounded-lg p-2" aria-label="关闭线段编辑"><X className="h-4 w-4" /></button></div>
           <div className="mt-2 grid grid-cols-2 gap-2">{selected.points.map((point, index) => <React.Fragment key={`${selected.id}-${index}`}><label className="survey-muted text-[10px]">点 {index + 1} · X<input type="number" min="0" step="1" value={Math.round(point.x * 100) / 100} onChange={(event) => updatePoint(index, 'x', Number(event.target.value))} className="survey-card survey-text mt-1 w-full rounded-lg border survey-border px-2 py-2 text-sm" /></label><label className="survey-muted text-[10px]">点 {index + 1} · Y<input type="number" min="0" step="1" value={Math.round(point.y * 100) / 100} onChange={(event) => updatePoint(index, 'y', Number(event.target.value))} className="survey-card survey-text mt-1 w-full rounded-lg border survey-border px-2 py-2 text-sm" /></label></React.Fragment>)}</div>
