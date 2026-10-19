@@ -285,7 +285,7 @@ export const ConstructionSequencePlayer: React.FC<ConstructionSequencePlayerProp
       leadTrade: '電氣儀控組 / 營造工務所 / 設計師 / 業主五方',
       durationDays: 1,
       elevationFocus: '全室高程與終端設備全面通電',
-      targetTolerance: 'V-01 ~ V-10 幾何與電氣 100% 合規簽發',
+      targetTolerance: 'V-01 ~ V-10 幾何與電氣逐項實測後簽發',
       headline: '燈具開關面板 · 雙層線性百葉固定 · 絕緣阻抗測試 · 交付驗收',
       coreRule: '完成 Panasonic 霧黑面板安裝、嵌入式 Ra95 筒燈通電、空調試運轉 2hr、簽署 V-01~10 結案簽證。',
       preRequisites: [
@@ -734,7 +734,7 @@ export const ConstructionSequencePlayer: React.FC<ConstructionSequencePlayerProp
                       <g transform="translate(340, 240) rotate(-10)">
                         <rect x="0" y="0" width="130" height="42" rx="6" fill="#064E3B" stroke="#10B981" strokeWidth="2" />
                         <text x="65" y="20" fill="#34D399" fontSize="12" textAnchor="middle" fontWeight="bold" letterSpacing="1">
-                          V-01~10 PASSED
+                          EVIDENCE_READY · 待 CAD 回讀
                         </text>
                         <text x="65" y="34" fill="#6EE7B7" fontSize="9" textAnchor="middle">
                           五方驗收合格簽章
