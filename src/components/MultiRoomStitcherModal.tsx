@@ -63,6 +63,9 @@ export const MultiRoomStitcherModal: React.FC<MultiRoomStitcherModalProps> = ({
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const roomDragRef = useRef<{ roomId: string; pointerId: number; offsetX: number; offsetY: number } | null>(null);
+  const [roomDragPreview, setRoomDragPreview] = useState<{ roomId: string; x: number; y: number } | null>(null);
 
   // Calculations
   const stitchedResult = useMemo(() => calculateStitchedFloorPlan(rooms, baseRoomId, wallThickness, stitchMode), [rooms, baseRoomId, wallThickness, stitchMode]);
@@ -96,6 +99,23 @@ export const MultiRoomStitcherModal: React.FC<MultiRoomStitcherModalProps> = ({
       if (value === null) return { ...room, manualPlacement: undefined };
       const current = room.manualPlacement || { x: automatic?.x || 0, y: automatic?.y || 0, rotation: automatic?.rotation || 0 };
       return { ...room, manualPlacement: { ...current, [field]: field === 'rotation' ? value as 0 | 90 | 180 | 270 : Math.round(Number(value)) }, lastUpdated: new Date().toISOString() };
+    });
+    onUpdateRooms(updated);
+  };
+
+  const commitManualPosition = (roomId: string, x: number, y: number) => {
+    const automatic = stitchedResult.placements.find((placement) => placement.roomId === roomId);
+    const rotation: 0 | 90 | 180 | 270 = roomDragPreview?.roomId === roomId
+      ? (rooms.find((room) => room.id === roomId)?.manualPlacement?.rotation || automatic?.rotation || 0)
+      : (automatic?.rotation || 0);
+    const updated = rooms.map((room) => room.id !== roomId ? room : {
+      ...room,
+      manualPlacement: {
+        x: Math.round(x / 5) * 5,
+        y: Math.round(y / 5) * 5,
+        rotation,
+      },
+      lastUpdated: new Date().toISOString(),
     });
     onUpdateRooms(updated);
   };
@@ -234,10 +254,58 @@ export const MultiRoomStitcherModal: React.FC<MultiRoomStitcherModalProps> = ({
   const viewBoxMinX = bb.minX - padding;
   const viewBoxMinY = bb.minY - padding;
 
-  // Mouse pan handlers
-  const handleMouseDown = (e: React.MouseEvent) => { if (e.button === 0) { setIsDragging(true); dragStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y }; } };
-  const handleMouseMove = (e: React.MouseEvent) => { if (isDragging) setPan({ x: e.clientX - dragStartRef.current.x, y: e.clientY - dragStartRef.current.y }); };
-  const handleMouseUp = () => setIsDragging(false);
+  const clientToSvg = (clientX: number, clientY: number) => {
+    const svg = svgRef.current;
+    if (!svg) return null;
+    const point = svg.createSVGPoint();
+    point.x = clientX;
+    point.y = clientY;
+    const matrix = svg.getScreenCTM();
+    return matrix ? point.matrixTransform(matrix.inverse()) : null;
+  };
+
+  // 背景拖曳只平移视角；房间拖曳只在「拓扑拼接」阶段启用。
+  const handleCanvasPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setIsDragging(true);
+    dragStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+  };
+  const handleCanvasPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isDragging && !roomDragRef.current) setPan({ x: e.clientX - dragStartRef.current.x, y: e.clientY - dragStartRef.current.y });
+  };
+  const handleCanvasPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    setIsDragging(false);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+  const handleRoomPointerDown = (e: React.PointerEvent<SVGGElement>, roomId: string, x: number, y: number) => {
+    e.stopPropagation();
+    setSelectedRoomId(roomId);
+    setIsLeftPanelOpen(true);
+    if (activeWorkflow !== 'topology') return;
+    const point = clientToSvg(e.clientX, e.clientY);
+    if (!point) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    roomDragRef.current = { roomId, pointerId: e.pointerId, offsetX: point.x - x, offsetY: point.y - y };
+    setRoomDragPreview({ roomId, x, y });
+  };
+  const handleRoomPointerMove = (e: React.PointerEvent<SVGGElement>) => {
+    const drag = roomDragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    e.stopPropagation();
+    const point = clientToSvg(e.clientX, e.clientY);
+    if (!point) return;
+    setRoomDragPreview({ roomId: drag.roomId, x: Math.round((point.x - drag.offsetX) / 5) * 5, y: Math.round((point.y - drag.offsetY) / 5) * 5 });
+  };
+  const handleRoomPointerUp = (e: React.PointerEvent<SVGGElement>) => {
+    const drag = roomDragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    e.stopPropagation();
+    if (roomDragPreview) commitManualPosition(drag.roomId, roomDragPreview.x, roomDragPreview.y);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    roomDragRef.current = null;
+    setRoomDragPreview(null);
+  };
   const handleResetView = () => { setZoom(1); setPan({ x: 0, y: 0 }); };
 
   return (
@@ -247,10 +315,10 @@ export const MultiRoomStitcherModal: React.FC<MultiRoomStitcherModalProps> = ({
       {/* 🌟 100% 無邊際畫布層 (Canvas Layer)                                         */}
       {/* ========================================================================= */}
       <div 
-        className="absolute inset-0 z-0 cursor-grab active:cursor-grabbing"
-        onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
+        className="absolute inset-0 z-0 cursor-grab touch-none active:cursor-grabbing"
+        onPointerDown={handleCanvasPointerDown} onPointerMove={handleCanvasPointerMove} onPointerUp={handleCanvasPointerUp} onPointerCancel={handleCanvasPointerUp}
       >
-        <svg viewBox={`${viewBoxMinX} ${viewBoxMinY} ${svgWidth} ${svgHeight}`} className="w-full h-full transition-transform duration-75 ease-out" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
+        <svg ref={svgRef} viewBox={`${viewBoxMinX} ${viewBoxMinY} ${svgWidth} ${svgHeight}`} className="w-full h-full transition-transform duration-75 ease-out" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
           <defs>
             <pattern id="gridPatternStitch" width="50" height="50" patternUnits="userSpaceOnUse">
               <path d="M 50 0 L 0 0 0 50" fill="none" stroke="rgba(255, 255, 255, 0.03)" strokeWidth="1" />
@@ -262,20 +330,23 @@ export const MultiRoomStitcherModal: React.FC<MultiRoomStitcherModalProps> = ({
           {stitchedResult.placements.map((p) => {
             const room = rooms.find((r) => r.id === p.roomId);
             if (!room) return null;
+            const preview = roomDragPreview?.roomId === p.roomId ? roomDragPreview : null;
+            const placementX = preview?.x ?? p.x;
+            const placementY = preview?.y ?? p.y;
             const isSelected = selectedRoomId === p.roomId;
             const c1 = rotatePoint(0, 0, p.rotation);
             const c2 = rotatePoint(room.width, 0, p.rotation);
             const c3 = rotatePoint(room.width, room.length, p.rotation);
             const c4 = rotatePoint(0, room.length, p.rotation);
-            const g1 = { x: p.x + c1.x, y: p.y + c1.y }; const g2 = { x: p.x + c2.x, y: p.y + c2.y };
-            const g3 = { x: p.x + c3.x, y: p.y + c3.y }; const g4 = { x: p.x + c4.x, y: p.y + c4.y };
+            const g1 = { x: placementX + c1.x, y: placementY + c1.y }; const g2 = { x: placementX + c2.x, y: placementY + c2.y };
+            const g3 = { x: placementX + c3.x, y: placementY + c3.y }; const g4 = { x: placementX + c4.x, y: placementY + c4.y };
             const centerLocal = { x: room.width / 2, y: room.length / 2 };
             const centerRot = rotatePoint(centerLocal.x, centerLocal.y, p.rotation);
-            const centerGlobal = { x: p.x + centerRot.x, y: p.y + centerRot.y };
+            const centerGlobal = { x: placementX + centerRot.x, y: placementY + centerRot.y };
             const areaText = areaUnit === 'ping' ? `${(room.width * room.length * 0.0001 * 0.3025).toFixed(1)} 坪` : `${(room.width * room.length * 0.0001).toFixed(2)} m²`;
 
             return (
-              <g key={p.roomId} onClick={(e) => { e.stopPropagation(); setSelectedRoomId(p.roomId); setIsLeftPanelOpen(true); }} className="cursor-pointer transition-opacity">
+              <g key={p.roomId} onPointerDown={(e) => handleRoomPointerDown(e, p.roomId, p.x, p.y)} onPointerMove={handleRoomPointerMove} onPointerUp={handleRoomPointerUp} onPointerCancel={handleRoomPointerUp} className={`${activeWorkflow === 'topology' ? 'cursor-move' : 'cursor-pointer'} transition-opacity`}>
                 <polygon points={`${g1.x},${g1.y} ${g2.x},${g2.y} ${g3.x},${g3.y} ${g4.x},${g4.y}`} fill={p.color} fillOpacity={isSelected ? 0.3 : 0.1} stroke={isSelected ? '#E0A83C' : p.color} strokeWidth={isSelected ? 3 : 1.5} strokeDasharray={isSelected ? '6,3' : 'none'} />
                 <polygon points={`${g1.x},${g1.y} ${g2.x},${g2.y} ${g3.x},${g3.y} ${g4.x},${g4.y}`} fill="none" stroke="#DDD7CE" strokeWidth="3.5" strokeLinejoin="round" />
                 <text x={centerGlobal.x} y={centerGlobal.y - 12} fill="#F8F8F6" fontSize="16" fontWeight="bold" textAnchor="middle" filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.8))">{room.roomName}</text>
@@ -285,7 +356,7 @@ export const MultiRoomStitcherModal: React.FC<MultiRoomStitcherModalProps> = ({
                 {room.doors && room.doors.map((d) => {
                   const geom = getDoorLocalGeometry(d, room.width, room.length);
                   const midRot = rotatePoint(geom.midX, geom.midY, p.rotation);
-                  const gx = p.x + midRot.x; const gy = p.y + midRot.y;
+                  const gx = placementX + midRot.x; const gy = placementY + midRot.y;
                   return (
                     <g key={d.id}>
                       <circle cx={gx} cy={gy} r="5" fill="#3F5B63" stroke="#F8F8F6" strokeWidth="1.5" />
@@ -434,7 +505,7 @@ export const MultiRoomStitcherModal: React.FC<MultiRoomStitcherModalProps> = ({
                     : '💡 嚴格依據兩兩空間門洞相同標籤 (A, B, C...) 進行幾何平移與剛體旋轉對齊。'}
                 </p>
                 <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-200">
-                  拖动画布只移动观看视角；下方 X／Y／旋转才会修改并保存房间坐标。
+                  拖动背景可移动观看视角；在拓扑拼接阶段直接拖动房间，或用下方 X／Y／旋转精确定位，都会保存坐标。
                 </div>
                 {selectedRoom && (() => { const placement = stitchedResult.placements.find((item) => item.roomId === selectedRoom.id); if (!placement) return null; return <div className="mt-3 rounded-xl border border-[#3F5B63]/40 bg-[#182216] p-3"><div className="mb-2 flex items-center justify-between"><strong className="text-xs text-[#F8F8F6]">人工定位 · {selectedRoom.roomName}</strong><button onClick={() => handleManualPlacement(selectedRoom.id, 'x', null)} className="text-[10px] text-amber-300">恢复自动拼接</button></div><div className="grid grid-cols-3 gap-2">{([['x','X (cm)',placement.x],['y','Y (cm)',placement.y]] as const).map(([field,label,value]) => <label key={field} className="text-[10px] text-[#DDD7CE]">{label}<input type="number" step="5" value={value} onChange={(event) => handleManualPlacement(selectedRoom.id, field, Number(event.target.value))} className="mt-1 w-full rounded-lg border border-[#3F5B63] bg-[#10170f] p-2 text-white" /></label>)}<label className="text-[10px] text-[#DDD7CE]">旋转<input aria-label="房间旋转" type="number" step="90" min="0" max="270" value={placement.rotation} onChange={(event) => handleManualPlacement(selectedRoom.id, 'rotation', ([0,90,180,270].includes(Number(event.target.value)) ? Number(event.target.value) : 0))} className="mt-1 w-full rounded-lg border border-[#3F5B63] bg-[#10170f] p-2 text-white" /></label></div><div className={`mt-2 text-[10px] font-bold ${stitchedResult.zeroCollisionVerified ? 'text-emerald-300' : 'text-rose-300'}`}>{stitchedResult.zeroCollisionVerified ? '当前无房间穿透' : '检测到房间重叠，请调整坐标'}</div></div>; })()}
 

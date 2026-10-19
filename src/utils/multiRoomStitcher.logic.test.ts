@@ -43,7 +43,7 @@ const manualRooms = [living, bedroom].map((room, index) => index === 1 ? { ...ro
 const manual = applyManualRoomPlacements(result, manualRooms);
 const moved = manual.placements.find((placement) => placement.roomId === manualRooms[1].id);
 if (!moved || moved.x !== 700 || moved.y !== 80 || moved.rotation !== 90) throw new Error('人工房间坐标未套用');
-if (manual.boundingBox.maxX < moved.x + moved.effectiveWidth) throw new Error('人工定位后边界框未重算');
+if (manual.boundingBox.minX > 340 || manual.boundingBox.maxX < 700) throw new Error('人工旋转定位后边界框未按真实角点重算');
 if (manual.sharedWallCount !== 0 || manual.totalCoincidentWallLength !== 0) throw new Error('人工定位后不得沿用过期共壁数据');
 const manualDxf = generateFullHouseDxfString(manualRooms, manual, 'manual-placement-test');
 if (!manualDxf.includes('10\n7000.0')) throw new Error('全案 DXF 未采用人工房间坐标');

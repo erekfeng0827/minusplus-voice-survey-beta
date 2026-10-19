@@ -1274,13 +1274,27 @@ export function applyManualRoomPlacements(result: StitchedFloorPlanResult, rooms
       collisionStatus: undefined,
     };
   });
-  const minX = Math.min(...placements.map((p) => p.x));
-  const minY = Math.min(...placements.map((p) => p.y));
-  const maxX = Math.max(...placements.map((p) => p.x + p.effectiveWidth));
-  const maxY = Math.max(...placements.map((p) => p.y + p.effectiveLength));
-  const zeroCollisionVerified = placements.every((p, index) => placements.slice(index + 1).every((other) => {
-    const overlapX = Math.min(p.x + p.effectiveWidth, other.x + other.effectiveWidth) - Math.max(p.x, other.x);
-    const overlapY = Math.min(p.y + p.effectiveLength, other.y + other.effectiveLength) - Math.max(p.y, other.y);
+  const bounds = placements.map((placement) => {
+    const corners = [
+      rotatePoint(0, 0, placement.rotation),
+      rotatePoint(placement.width, 0, placement.rotation),
+      rotatePoint(placement.width, placement.length, placement.rotation),
+      rotatePoint(0, placement.length, placement.rotation),
+    ].map((point) => ({ x: placement.x + point.x, y: placement.y + point.y }));
+    return {
+      minX: Math.min(...corners.map((point) => point.x)),
+      minY: Math.min(...corners.map((point) => point.y)),
+      maxX: Math.max(...corners.map((point) => point.x)),
+      maxY: Math.max(...corners.map((point) => point.y)),
+    };
+  });
+  const minX = Math.min(...bounds.map((box) => box.minX));
+  const minY = Math.min(...bounds.map((box) => box.minY));
+  const maxX = Math.max(...bounds.map((box) => box.maxX));
+  const maxY = Math.max(...bounds.map((box) => box.maxY));
+  const zeroCollisionVerified = bounds.every((box, index) => bounds.slice(index + 1).every((other) => {
+    const overlapX = Math.min(box.maxX, other.maxX) - Math.max(box.minX, other.minX);
+    const overlapY = Math.min(box.maxY, other.maxY) - Math.max(box.minY, other.minY);
     return !(overlapX > 1 && overlapY > 1);
   }));
   return {
