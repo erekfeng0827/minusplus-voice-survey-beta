@@ -449,7 +449,7 @@ export interface IpadApplicationData {
 // Quotation Estimator Types
 export interface QuotationLineItem {
   id: string;
-  category: 'CEILING' | 'HVAC_DROP' | 'MEP_CIRCUIT' | 'LIGHTING' | 'STAKING_LABOR' | 'DISCOUNT_TAX';
+  category: 'CEILING' | 'HVAC_DROP' | 'MEP_CIRCUIT' | 'LIGHTING' | 'STAKING_LABOR' | 'CARPENTRY' | 'STAIR' | 'OPENING' | 'DISCOUNT_TAX';
   name: string;
   specification: string;
   unit: '坪' | 'm' | '組' | '盞' | '式';

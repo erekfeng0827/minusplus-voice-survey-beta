@@ -23,6 +23,18 @@ interface QuotationEstimatorModalProps {
   onNotify: (msg: string) => void;
 }
 
+export function calculateQuotationMetrics(rooms: RoomData[]) {
+  const blocks = rooms.flatMap((item) => item.placedBlocks || []);
+  const cabinetBlocks = blocks.filter((item) => item.subCategory.includes('cabinet') || item.subCategory.includes('wardrobe') || /櫃|柜|衣櫥|衣橱/.test(item.name));
+  const stairBlocks = blocks.filter((item) => item.subCategory.startsWith('stair:') || /樓梯|楼梯|直梯|旋轉梯|旋转梯/.test(item.name));
+  return {
+    cabinetRunMeters: Number((cabinetBlocks.reduce((sum, item) => sum + item.widthCm, 0) / 100).toFixed(2)),
+    cabinetBlockCount: cabinetBlocks.length,
+    stairSetCount: stairBlocks.length,
+    openingCount: rooms.reduce((sum, item) => sum + (item.doors?.length || 0) + (item.windows?.length || 0), 0),
+  };
+}
+
 export const QuotationEstimatorModal: React.FC<QuotationEstimatorModalProps> = ({
   isOpen,
   onClose,
@@ -49,6 +61,7 @@ export const QuotationEstimatorModal: React.FC<QuotationEstimatorModalProps> = (
   const totalLightingPointsCount = useMemo(() => {
     return activeRooms.reduce((acc, r) => acc + (r.lightingPoints?.length || 0), 0);
   }, [activeRooms]);
+  const quotationMetrics = useMemo(() => calculateQuotationMetrics(scope === 'CURRENT_ROOM' ? [room] : allRooms), [scope, room, allRooms]);
 
   // 初始工項資料
   const [items, setItems] = useState<QuotationLineItem[]>([
@@ -148,15 +161,30 @@ export const QuotationEstimatorModal: React.FC<QuotationEstimatorModalProps> = (
       notes: '專業甲級室內裝修技術士現場親校，出具 V-01~10 簽證',
       ruleReference: '降板裁決_v003 驗收章節',
     },
+    {
+      id: 'Q-09', category: 'CARPENTRY', name: '已配置櫃體／衣櫃延米', specification: '依平面配置圖塊實際寬度合計；深度、高度、板材及五金仍需設計師確認', unit: 'm', quantity: 0, unitPrice: 0, subtotal: 0,
+      notes: '數量由已放置櫃體圖塊帶入；單價保持 0，避免未詢價即產生假報價', ruleReference: '全案配置資料接口',
+    },
+    {
+      id: 'Q-10', category: 'STAIR', name: '已配置樓梯系統', specification: '直梯／L 型梯／U 型梯／旋轉梯依配置圖塊計數；結構、材質與法規另審', unit: '組', quantity: 0, unitPrice: 0, subtotal: 0,
+      notes: '只帶入已建檔樓梯數量；正式估價須確認踏階、轉台、結構與扶手', ruleReference: '樓梯參數化圖塊',
+    },
+    {
+      id: 'Q-11', category: 'OPENING', name: '已丈量門窗開口', specification: '依現場丈量已建檔門片與窗戶總數帶入', unit: '組', quantity: 0, unitPrice: 0, subtotal: 0,
+      notes: '僅為資料完整性接口；材質、窗型、五金與施工方式尚待核價', ruleReference: '門窗丈量資料',
+    },
   ]);
 
   useEffect(() => {
     setItems((previous) => previous.map((item) => {
       if (item.id === 'Q-05') return { ...item, quantity: totalMepPointsCount };
       if (item.id === 'Q-07') return { ...item, quantity: totalLightingPointsCount };
+      if (item.id === 'Q-09') return { ...item, quantity: quotationMetrics.cabinetRunMeters };
+      if (item.id === 'Q-10') return { ...item, quantity: quotationMetrics.stairSetCount };
+      if (item.id === 'Q-11') return { ...item, quantity: quotationMetrics.openingCount };
       return item;
     }));
-  }, [totalMepPointsCount, totalLightingPointsCount]);
+  }, [totalMepPointsCount, totalLightingPointsCount, quotationMetrics]);
 
   // 動態計算小計
   const calculatedItems = useMemo(() => {
@@ -297,7 +325,7 @@ export const QuotationEstimatorModal: React.FC<QuotationEstimatorModalProps> = (
 
             <span className="text-slate-500 ml-2">
               總地坪: <b className="text-amber-400">{totalFloorPing.toFixed(1)} 坪</b> | 
-              已建檔水電: <b className="text-amber-400">{totalMepPointsCount}</b> | 已建檔燈具: <b className="text-amber-400">{totalLightingPointsCount}</b>
+              已建檔水電: <b className="text-amber-400">{totalMepPointsCount}</b> | 已建檔燈具: <b className="text-amber-400">{totalLightingPointsCount}</b> | 櫃體: <b className="text-amber-400">{quotationMetrics.cabinetRunMeters}m</b> | 樓梯: <b className="text-amber-400">{quotationMetrics.stairSetCount}</b>
             </span>
           </div>
 
@@ -428,7 +456,7 @@ export const QuotationEstimatorModal: React.FC<QuotationEstimatorModalProps> = (
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-4 bg-slate-950 border-t border-slate-800">
           <div className="text-xs text-slate-400">
-            預估工期：約 12 ~ 14 個工作天 (含雷射放樣與二次復查)
+            工期尚未由工程條件與工班排程核定，不在此介面自動推估。
           </div>
 
           <div className="flex items-center gap-3">
