@@ -77,6 +77,28 @@ const saveFileToIndexedDb = (file: File) => new Promise<void>((resolve, reject) 
   };
 });
 
+const readFileFromIndexedDb = () => new Promise<File | null>((resolve, reject) => {
+  if (!('indexedDB' in window)) {
+    reject(new Error('此瀏覽器不支援 IndexedDB'));
+    return;
+  }
+  const request = indexedDB.open(DB_NAME, 1);
+  request.onerror = () => reject(request.error || new Error('無法開啟本機檔案庫'));
+  request.onupgradeneeded = () => {
+    const db = request.result;
+    if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
+  };
+  request.onsuccess = () => {
+    const db = request.result;
+    const transaction = db.transaction(STORE_NAME, 'readonly');
+    const getRequest = transaction.objectStore(STORE_NAME).get(ACTIVE_FILE_KEY);
+    getRequest.onsuccess = () => resolve(getRequest.result instanceof File ? getRequest.result : null);
+    getRequest.onerror = () => reject(getRequest.error || new Error('本機圖面讀取失敗'));
+    transaction.oncomplete = () => db.close();
+    transaction.onerror = () => { db.close(); reject(transaction.error || new Error('本機圖面讀取失敗')); };
+  };
+});
+
 const readStoredMeta = (): StoredDrawingMeta | null => {
   try {
     const value = localStorage.getItem(FLOORPLAN_META_KEY);
@@ -98,7 +120,23 @@ export const FloorplanPdfImportModal: React.FC<FloorplanPdfImportModalProps> = (
   const [dxfResult, setDxfResult] = useState<SafeDxfShellResult | null>(null);
 
   useEffect(() => {
-    if (isOpen) setStoredMeta(readStoredMeta());
+    if (!isOpen) return;
+    const meta = readStoredMeta();
+    setStoredMeta(meta);
+    if (meta?.status !== 'parsed_dxf' || !meta.name.toLowerCase().endsWith('.dxf')) return;
+    let active = true;
+    setIsSaving(true);
+    void readFileFromIndexedDb()
+      .then(async (file) => {
+        if (!active || !file) return;
+        const restored = parseSafeDxfShells(await file.text(), file.name);
+        if (active) setDxfResult(restored);
+      })
+      .catch((reason) => {
+        if (active) setError(reason instanceof Error ? reason.message : '本機 DXF 恢復失敗');
+      })
+      .finally(() => { if (active) setIsSaving(false); });
+    return () => { active = false; };
   }, [isOpen]);
 
   if (!isOpen) return null;
