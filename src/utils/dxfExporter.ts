@@ -37,6 +37,9 @@ export function generateDxfString(room: RoomData, projectName: string = '室內�
   });
   dxf += '0\nENDTAB\n0\nENDSEC\n';
 
+  const appBlocks = buildAppParametricBlocks(room);
+  dxf += `0\nSECTION\n2\nBLOCKS\n${appBlocks.blocks}0\nENDSEC\n`;
+
   // 3. ENTITIES SECTION
   dxf += '0\nSECTION\n2\nENTITIES\n';
 
@@ -121,11 +124,7 @@ export function generateDxfString(room: RoomData, projectName: string = '室內�
     dxf += text('STRUCT_COLUMN', x + 3, y + Math.min(column.depth - 3, 10), 5, column.name);
   });
 
-  (room.placedBlocks || []).forEach((block) => {
-    const layer = block.subCategory.startsWith('stair:') ? 'STAIR' : 'FURNITURE';
-    dxf += rectangle(layer, block.x, block.y, block.widthCm, block.depthCm);
-    dxf += text(layer, block.x + 3, block.y + Math.min(block.depthCm - 3, 10), 5, `${block.name} ${block.widthCm}x${block.depthCm}cm`);
-  });
+  dxf += appBlocks.inserts;
 
   // Dimensions
   // Bottom horizontal
@@ -185,6 +184,46 @@ function rectangle(layer: string, x: number, y: number, width: number, depth: nu
     + line(layer, x + width, y, x + width, y + depth)
     + line(layer, x + width, y + depth, x, y + depth)
     + line(layer, x, y + depth, x, y);
+}
+
+// R12 block names are limited to 31 characters in AutoCAD. Keeping the
+// generated name within that limit avoids ErrorStatus=53 on open/readback.
+const safeBlockName = (value: string) => value.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 31) || 'MP_BLOCK';
+const tagNumber = (tags: string[] | undefined, key: string, fallback = 0) => {
+  const raw = tags?.find((tag) => tag.startsWith(`${key}:`))?.split(':').slice(1).join(':');
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : fallback;
+};
+
+/** R12 BLOCK/INSERT intermediary. These are explicit APP_PARAMETRIC_ONLY blocks, not AutoCAD Dynamic Blocks. */
+export function buildAppParametricBlocks(room: RoomData): { blocks: string; inserts: string; names: string[] } {
+  let blocks = '';
+  let inserts = '';
+  const names: string[] = [];
+  (room.placedBlocks || []).forEach((item, index) => {
+    const layer = item.subCategory.startsWith('stair:') ? 'STAIR' : 'FURNITURE';
+    const name = safeBlockName(`MP_${item.blockId}_${index + 1}`);
+    names.push(name);
+    blocks += `0\nBLOCK\n8\n${layer}\n2\n${name}\n70\n0\n10\n0\n20\n0\n30\n0\n3\n${name}\n1\n\n`;
+    blocks += rectangle(layer, 0, 0, item.widthCm, item.depthCm);
+    if (layer === 'STAIR') {
+      const risers = Math.max(1, Math.round(tagNumber(item.tags, 'risers', 1)));
+      for (let step = 1; step < risers; step += 1) {
+        const y = item.depthCm * step / risers;
+        blocks += line(layer, 0, y, item.widthCm, y);
+      }
+    } else {
+      const divisions = Math.max(1, Math.round(item.widthCm / 60));
+      for (let division = 1; division < divisions; division += 1) {
+        const x = item.widthCm * division / divisions;
+        blocks += line(layer, x, 0, x, item.depthCm);
+      }
+    }
+    blocks += text(layer, 3, Math.min(item.depthCm - 3, 10), 5, `${item.name} ${item.widthCm}x${item.depthCm}cm APP_PARAMETRIC_ONLY`);
+    blocks += '0\nENDBLK\n8\n0\n';
+    inserts += `0\nINSERT\n8\n${layer}\n2\n${name}\n10\n${(item.x * 10).toFixed(2)}\n20\n${(item.y * 10).toFixed(2)}\n30\n0.0\n41\n1.0\n42\n1.0\n43\n1.0\n50\n${(item.rotationDeg || 0).toFixed(2)}\n`;
+  });
+  return { blocks, inserts, names };
 }
 
 function normalizeWall(wall: string): 'top' | 'bottom' | 'left' | 'right' {
