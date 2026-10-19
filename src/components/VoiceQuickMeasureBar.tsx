@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { RoomData, Column } from '../types';
 import { AlertCircle, Check, Mic, MicOff, RotateCcw } from 'lucide-react';
+import { measurementToCentimeters, SPOKEN_LENGTH_UNIT_PATTERN } from '../utils/measurementUnits';
 
 interface VoiceQuickMeasureBarProps {
   room: RoomData;
@@ -17,8 +18,7 @@ interface ParsedDraft {
 }
 
 const toCentimeters = (value: string, unit?: string) => {
-  const parsed = Number.parseFloat(value);
-  return unit && /^(米|公尺|m)$/i.test(unit) ? Math.round(parsed * 100) : parsed < 20 ? Math.round(parsed * 100) : Math.round(parsed);
+  return measurementToCentimeters(value, unit, 'legacy-meters-under-20');
 };
 
 export const VoiceQuickMeasureBar: React.FC<VoiceQuickMeasureBarProps> = ({ room, onUpdateRoom, onNotify }) => {
@@ -56,7 +56,7 @@ export const VoiceQuickMeasureBar: React.FC<VoiceQuickMeasureBarProps> = ({ room
     const changes: ParsedDraft['changes'] = {};
     const addedColumns: Column[] = [];
 
-    const dimensionPattern = '(\\d+(?:\\.\\d+)?)\\s*(米|公尺|m|cm|公分)?';
+    const dimensionPattern = `(\\d+(?:\\.\\d+)?)\\s*(${SPOKEN_LENGTH_UNIT_PATTERN})?`;
     const lengthMatch = text.match(new RegExp(`(?:總長|進深|深度|長度|長)\\s*(?:為|是|約)?\\s*${dimensionPattern}`, 'i'));
     const widthMatch = text.match(new RegExp(`(?:總寬|面寬|開間|寬度|寬)\\s*(?:為|是|約)?\\s*${dimensionPattern}`, 'i'));
     const heightMatch = text.match(new RegExp(`(?:RC|樓高|淨高|高度|高)\\s*(?:為|是|約)?\\s*${dimensionPattern}`, 'i'));

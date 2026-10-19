@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Check, Compass, DoorOpen, Mic, MicOff, RotateCcw, Ruler, SquareDashed } from 'lucide-react';
 import { Beam, Column, Door, FurnitureItem, PlacedBlockItem, RoomData, WindowOpening } from '../types';
 import { detectStairType, STAIR_BLOCK_CATALOG, StairType } from '../data/stairBlockCatalog';
+import { measurementToCentimeters, SPOKEN_LENGTH_UNIT_PATTERN } from '../utils/measurementUnits';
 
 type Wall = 'top' | 'bottom' | 'left' | 'right';
 export type PerimeterDraft =
@@ -22,10 +23,9 @@ const WALL_LABEL: Record<Wall, string> = { top: '北牆／上牆', right: '東�
 
 const valueCm = (text: string, labels: string[]) => {
   const label = labels.join('|');
-  const match = text.match(new RegExp(`(?:${label})\\s*(?:為|是|約)?\\s*(\\d+(?:\\.\\d+)?)\\s*(米|公尺|m|公分|cm)?`, 'i'));
+  const match = text.match(new RegExp(`(?:${label})\\s*(?:為|是|約)?\\s*(\\d+(?:\\.\\d+)?)\\s*(${SPOKEN_LENGTH_UNIT_PATTERN})?`, 'i'));
   if (!match) return undefined;
-  const number = Number(match[1]);
-  return /^(米|公尺|m)$/i.test(match[2] || '') ? Math.round(number * 100) : Math.round(number);
+  return measurementToCentimeters(match[1], match[2]);
 };
 
 const detectWall = (text: string): Wall | undefined => {
@@ -117,7 +117,7 @@ export const parsePerimeterCommand = (source: string): { draft?: PerimeterDraft;
   }
 
   if (/窗/.test(text)) {
-    const sillHeight = valueCm(text, ['窗台高度', '台度', '窗台']);
+    const sillHeight = valueCm(text, ['窗台高度', '台度', '窗台', '離地', '离地']);
     if (height === undefined) missing.push('窗高');
     if (sillHeight === undefined) missing.push('窗台高度');
     if (!wall || offset === undefined || width === undefined || height === undefined || sillHeight === undefined) return { missing };

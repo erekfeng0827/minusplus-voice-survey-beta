@@ -76,4 +76,12 @@ const incomplete = parsePerimeterCommand('左牆有一扇窗');
 assert.equal(incomplete.draft, undefined);
 assert.ok(incomplete.missing.includes('離牆角距離'));
 
+const taiFootWindow = parsePerimeterCommand('北牆 離起點 3.2尺 窗戶 寬4.25台尺 高3.93尺 離地2.17尺');
+assert.equal(taiFootWindow.draft?.kind, 'window');
+if (taiFootWindow.draft?.kind !== 'window') throw new Error('台尺窗戶未辨識');
+assert.equal(taiFootWindow.draft.offset, 97);
+assert.equal(taiFootWindow.draft.width, 129);
+assert.equal(taiFootWindow.draft.height, 119);
+assert.equal(taiFootWindow.draft.sillHeight, 66);
+
 console.log('PerimeterSurveyGuide logic: PASS');
