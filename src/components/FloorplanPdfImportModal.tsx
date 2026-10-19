@@ -23,7 +23,7 @@ export interface StoredDrawingMeta {
 export const FLOORPLAN_META_KEY = 'minusplus_floorplan_upload_meta_v1';
 const DB_NAME = 'minusplus-survey-files';
 const STORE_NAME = 'drawings';
-const ACTIVE_FILE_KEY = 'active-floorplan';
+export const ACTIVE_FILE_KEY = 'active-floorplan';
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
 
 export const validateFloorplanFile = (file: Pick<File, 'name' | 'size'>): string | null => {
@@ -77,7 +77,7 @@ const saveFileToIndexedDb = (file: File) => new Promise<void>((resolve, reject) 
   };
 });
 
-const readFileFromIndexedDb = () => new Promise<File | null>((resolve, reject) => {
+export const readFileFromIndexedDb = (storageKey = ACTIVE_FILE_KEY) => new Promise<File | null>((resolve, reject) => {
   if (!('indexedDB' in window)) {
     reject(new Error('此瀏覽器不支援 IndexedDB'));
     return;
@@ -91,7 +91,7 @@ const readFileFromIndexedDb = () => new Promise<File | null>((resolve, reject) =
   request.onsuccess = () => {
     const db = request.result;
     const transaction = db.transaction(STORE_NAME, 'readonly');
-    const getRequest = transaction.objectStore(STORE_NAME).get(ACTIVE_FILE_KEY);
+    const getRequest = transaction.objectStore(STORE_NAME).get(storageKey);
     getRequest.onsuccess = () => resolve(getRequest.result instanceof File ? getRequest.result : null);
     getRequest.onerror = () => reject(getRequest.error || new Error('本機圖面讀取失敗'));
     transaction.oncomplete = () => db.close();
@@ -185,8 +185,34 @@ export const FloorplanPdfImportModal: React.FC<FloorplanPdfImportModalProps> = (
       return;
     }
     const room = createManualTraceRoom(roomName, width, length, height);
-    onImportRooms([room], storedMeta.name.replace(/\.[^/.]+$/, ''));
-    onNotify('已建立人工描圖空間；接著可口述尺寸，確認後會保存於本機。');
+    const extension = storedMeta.name.split('.').pop()?.toLowerCase();
+    if (extension === 'pdf' || ['png', 'jpg', 'jpeg'].includes(extension || '')) {
+      const now = new Date().toISOString();
+      const shell: ProjectShell = {
+        id: `shell-manual-${Date.now()}`,
+        sourceFileName: storedMeta.name,
+        sourceFormat: extension === 'pdf' ? 'PDF' : 'IMAGE',
+        underlay: {
+          storageKey: ACTIVE_FILE_KEY,
+          mimeType: storedMeta.type || (extension === 'pdf' ? 'application/pdf' : `image/${extension === 'jpg' ? 'jpeg' : extension}`),
+          opacity: 0.55,
+        },
+        unitName: 'cm',
+        scaleToCm: 1,
+        width: room.width,
+        length: room.length,
+        segments: [
+          { id: 'manual-top', layer: 'WALL-MANUAL', entityType: 'LWPOLYLINE', points: [{ x: 0, y: 0 }, { x: room.width, y: 0 }, { x: room.width, y: room.length }, { x: 0, y: room.length }, { x: 0, y: 0 }], closed: true },
+        ],
+        zones: [],
+        importedAt: now,
+      };
+      onImportShell(shell, [room], storedMeta.name.replace(/\.[^/.]+$/, ''));
+      onNotify('已建立可描线底图；图面会显示在可编辑线稿下方，请先核对总宽与总长。');
+    } else {
+      onImportRooms([room], storedMeta.name.replace(/\.[^/.]+$/, ''));
+      onNotify('DWG 已保存但尚未解析；请先转存 DXF，系统不会虚构几何。');
+    }
     onClose();
   };
 
@@ -205,7 +231,7 @@ export const FloorplanPdfImportModal: React.FC<FloorplanPdfImportModalProps> = (
             <div className="shrink-0 rounded-xl border border-amber-500/40 bg-amber-500/10 p-2 text-amber-500"><FileText className="h-5 w-5" /></div>
             <div className="min-w-0">
               <h2 id="floorplan-import-title" className="break-words text-base font-bold survey-text">上傳空模／建商圖面</h2>
-              <p className="mt-1 text-xs survey-muted">DXF 可在本机安全读取真实几何；PDF／图片进入人工描图；DWG 需先转存 DXF。</p>
+              <p className="mt-1 text-xs survey-muted">DXF 读取真实几何；PDF／图片可作为可编辑描线底图；DWG 需先转存 DXF。</p>
             </div>
           </div>
           <button type="button" onClick={onClose} className="shrink-0 rounded-lg p-2 survey-muted hover:bg-white/10" aria-label="關閉"><X className="h-5 w-5" /></button>
@@ -213,7 +239,7 @@ export const FloorplanPdfImportModal: React.FC<FloorplanPdfImportModalProps> = (
 
         <div className="min-w-0 flex-1 space-y-4 overflow-y-auto p-4 md:p-6">
           <section className="space-y-3">
-            <div><p className="text-xs font-bold text-amber-500">1. 選擇真實圖面</p><p className="text-[11px] survey-muted">DXF：读取几何 · PDF/JPG/PNG：保存后人工描图 · DWG：保存但需转 DXF。单档上限 50 MB。</p></div>
+            <div><p className="text-xs font-bold text-amber-500">1. 選擇真實圖面</p><p className="text-[11px] survey-muted">DXF：读取几何 · PDF/JPG/PNG：显示底图并描线 · DWG：保存但需转 DXF。单档上限 50 MB。</p></div>
             <button type="button" disabled={isSaving} onClick={() => inputRef.current?.click()} className="flex w-full min-w-0 flex-col items-center justify-center rounded-2xl border-2 border-dashed survey-border p-6 text-center hover:border-amber-500 disabled:opacity-50">
               {isSaving ? <Loader2 className="mb-2 h-7 w-7 animate-spin text-amber-500" /> : <Upload className="mb-2 h-7 w-7 text-amber-500" />}
               <span className="text-sm font-bold survey-text">{isSaving ? '正在保存到本機…' : '選擇圖面檔案'}</span>

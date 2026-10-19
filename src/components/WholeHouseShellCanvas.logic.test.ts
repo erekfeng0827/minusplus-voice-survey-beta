@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { deleteProjectShellSegment, updateProjectShellPoint } from './WholeHouseShellCanvas';
+import { appendProjectShellSegment, deleteProjectShellSegment, updateProjectShellPoint } from './WholeHouseShellCanvas';
 import type { ProjectShell } from '../types';
 
 const shell: ProjectShell = {
@@ -16,4 +16,7 @@ assert.equal(moved.segments[0].points[1].x, 125);
 assert.equal(shell.segments[0].points[1].x, 100, 'must not mutate imported source state');
 assert.equal(updateProjectShellPoint(shell, 's1', 0, 'y', -10).segments[0].points[0].y, 0, 'coordinates are clamped inside editable canvas');
 assert.deepEqual(deleteProjectShellSegment(shell, 's1').segments.map((item) => item.id), ['s2']);
+const appended = appendProjectShellSegment(shell, { x: 10, y: 20 }, { x: 30, y: 40 });
+assert.equal(appended.segments.length, 3);
+assert.deepEqual(appended.segments[2].points, [{ x: 10, y: 20 }, { x: 30, y: 40 }]);
 console.log('WholeHouseShellCanvas editable geometry: PASS');

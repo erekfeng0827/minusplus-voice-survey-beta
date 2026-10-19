@@ -110,7 +110,12 @@ export interface RoomZone {
 export interface ProjectShell {
   id: string;
   sourceFileName: string;
-  sourceFormat: 'DXF' | 'MANUAL';
+  sourceFormat: 'DXF' | 'MANUAL' | 'PDF' | 'IMAGE';
+  underlay?: {
+    storageKey: string;
+    mimeType: string;
+    opacity: number;
+  };
   unitName: string;
   scaleToCm: number;
   width: number;
@@ -846,4 +851,3 @@ export interface SuLayoutExportConfig {
   includeFurnitureLayers: boolean;
   includeMepLightingCircuit: boolean;
 }
-
