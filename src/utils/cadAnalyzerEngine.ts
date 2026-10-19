@@ -502,7 +502,7 @@ export function runCadAnalyzerPrecheck(room: RoomData, isFixed: boolean = false)
 }
 
 /**
- * Generate a 100% compliant Corey A3 DXF string
+ * Generate a Corey A3 candidate DXF string for independent review.
  * With Layer Whitelist, native DIMENSION entities, COREY_STYLE, and corey-a3 title block
  */
 export function generateCompliantCoreyDxfString(
@@ -637,10 +637,10 @@ export function generateCompliantCoreyDxfString(
   dxf += makeDxfText('G-ANNO-TTLB', tbX + 10, tbY + 32, 5.5, `繪圖: ${designer}`, 'COREY_STYLE');
   dxf += makeDxfText('G-ANNO-TTLB', tbX + 130, tbY + 32, 5.5, `審核: ${reviewer}`, 'COREY_STYLE');
   dxf += makeDxfText('G-ANNO-TTLB', tbX + 10, tbY + 10, 5, `契約: 《降板裁決_v003.json》 (265/230/215/80)`, 'COREY_STYLE');
-  dxf += makeDxfText('G-ANNO-TTLB', tbX + 130, tbY + 10, 5, `門禁: CAD_Analyzer Certified 4/4 PASS`, 'COREY_STYLE');
+  dxf += makeDxfText('G-ANNO-TTLB', tbX + 130, tbY + 10, 5, `門禁: CANDIDATE · NOT_REVIEWED`, 'COREY_STYLE');
 
   // Title Block Header Stamp top-left
-  dxf += makeDxfText('G-ANNO-TTLB', innerMinX + 10, innerMaxY - 18, 7, `[corey-a3] STAR_MOON_BAY_8F · GEOMETRIC CONTRACT VERIFIED`, 'COREY_STYLE');
+  dxf += makeDxfText('G-ANNO-TTLB', innerMinX + 10, innerMaxY - 18, 7, `[corey-a3] STAR_MOON_BAY_8F · CANDIDATE`, 'COREY_STYLE');
 
   // ==========================================
   // B. OUTER WALL POLYLINE (A-WALL-FULL)
@@ -797,7 +797,7 @@ export function generateCompliantCoreyDxfString(
     0,
     l + 12,
     5.5,
-    `品管驗收: CAD_Analyzer Certified | 白名單圖層過濾 PASS | 關聯標註 PASS | corey-a3 圖框 PASS`,
+    `品管狀態: CANDIDATE | 需 AutoCAD 回讀與獨立驗收`,
     'COREY_STYLE'
   );
 
@@ -887,7 +887,7 @@ function makeDxfNativeDimension(params: {
 }
 
 /**
- * Trigger download of the compliant Corey A3 DXF
+ * Trigger download of the unreviewed Corey A3 candidate DXF.
  */
 export function downloadCompliantCoreyDxfFile(room: RoomData, projectName: string = '星玥灣8F_放樣施工圖') {
   const dxfContent = generateCompliantCoreyDxfString(room, { projectName });
@@ -895,7 +895,7 @@ export function downloadCompliantCoreyDxfFile(room: RoomData, projectName: strin
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  const fileName = `${projectName}_${room.roomName.replace(/\s+/g, '_')}_CoreyA3_PASS.dxf`;
+  const fileName = `${projectName}_${room.roomName.replace(/\s+/g, '_')}_CoreyA3_CANDIDATE.dxf`;
   a.download = fileName;
   document.body.appendChild(a);
   a.click();
