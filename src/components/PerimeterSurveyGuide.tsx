@@ -4,7 +4,7 @@ import { Beam, Column, Door, FurnitureItem, PlacedBlockItem, RoomData, WindowOpe
 import { detectStairType, STAIR_BLOCK_CATALOG, StairType } from '../data/stairBlockCatalog';
 
 type Wall = 'top' | 'bottom' | 'left' | 'right';
-type Draft =
+export type PerimeterDraft =
   | { kind: 'door'; label: string; wall: Wall; offset: number; width: number; height: number; summary: string[]; source: string }
   | { kind: 'window'; label: string; wall: Wall; offset: number; width: number; height: number; sillHeight: number; summary: string[]; source: string }
   | { kind: 'column'; label: string; wall: Wall; offset: number; width: number; depth: number; height: number; summary: string[]; source: string }
@@ -36,7 +36,7 @@ const detectWall = (text: string): Wall | undefined => {
   return undefined;
 };
 
-export const parsePerimeterCommand = (source: string): { draft?: Draft; missing: string[] } => {
+export const parsePerimeterCommand = (source: string): { draft?: PerimeterDraft; missing: string[] } => {
   const text = source.replace(/[，,。、；;！!？?]/g, ' ').replace(/\s+/g, ' ').trim();
   const wall = detectWall(text);
   const offset = valueCm(text, ['離(?:左|右)?牆角', '距(?:左|右)?牆角', '離起點', '距起點', '偏移']);
@@ -134,9 +134,31 @@ export const parsePerimeterCommand = (source: string): { draft?: Draft; missing:
   return { missing: ['物件类型（門、窗、柱、梁、樓梯或櫃體）'] };
 };
 
+export const createParametricStairBlock = (draft: Extract<PerimeterDraft, { kind: 'stair' }>, room: RoomData, now = Date.now()): PlacedBlockItem => {
+  const horizontal = draft.wall === 'top' || draft.wall === 'bottom';
+  const definition = STAIR_BLOCK_CATALOG[draft.stairType];
+  return { id: `guided-stair-${now}`, blockId: definition.blockId, name: draft.label, category: 'detail_joint', subCategory: `stair:${draft.stairType}`, x: horizontal ? draft.offset : draft.wall === 'left' ? 0 : Math.max(0, room.width - draft.width), y: horizontal ? (draft.wall === 'top' ? 0 : Math.max(0, room.length - draft.depth - (draft.rearClearance || 0))) : draft.offset, widthCm: horizontal ? draft.width : draft.depth, depthCm: horizontal ? draft.depth : draft.width, cadLayer: 'A-STAIR', colorIndex: 3, rotationDeg: horizontal ? 0 : 90, snappedTo: WALL_LABEL[draft.wall], tags: [`stairType:${draft.stairType}`, `frontClearance:${draft.offset}`, `rearClearance:${draft.rearClearance || 0}`, `flight1Risers:${draft.flight1Risers || draft.risers || 'unconfirmed'}`, `treadDepth:${draft.treadDepth || 'unconfirmed'}`, `landingDepth:${draft.landingDepth || 0}`, `flight2Risers:${draft.flight2Risers || 0}`, `risers:${draft.risers || 'unconfirmed'}`, `turn:${draft.turnDirection || 'not_applicable'}`, `verification:${definition.verificationStatus}`, `source:${draft.source}`], placedAt: new Date(now).toISOString() };
+};
+
+export const createParametricCabinetPlacement = (draft: Extract<PerimeterDraft, { kind: 'cabinet' }>, room: RoomData, now = Date.now()): { block: PlacedBlockItem; furniture: FurnitureItem } => {
+  const horizontal = draft.wall === 'top' || draft.wall === 'bottom';
+  const wallSpan = horizontal ? room.width : room.length;
+  const effectiveWidth = draft.fillWall ? Math.max(0, wallSpan - draft.offset) : draft.width;
+  const x = horizontal ? draft.offset : draft.wall === 'left' ? 0 : Math.max(0, room.width - draft.depth);
+  const y = horizontal ? (draft.wall === 'top' ? 0 : Math.max(0, room.length - draft.depth)) : draft.offset;
+  const displayWidth = horizontal ? effectiveWidth : draft.depth;
+  const displayDepth = horizontal ? draft.depth : effectiveWidth;
+  const placedId = `guided-cabinet-${now}`;
+  const furnitureId = `f-${placedId}`;
+  return {
+    block: { id: placedId, furnitureId, blockId: `minusplus-${draft.label}-${effectiveWidth}x${draft.depth}`, name: draft.label, category: 'furniture', subCategory: 'cabinet:parametric', x, y, widthCm: displayWidth, depthCm: displayDepth, heightCm: draft.height, elevationCm: draft.elevation, cadLayer: 'A-FURN-MILL', colorIndex: 3, rotationDeg: 0, snappedTo: WALL_LABEL[draft.wall], tags: [`wall:${draft.wall}`, `fillWall:${Boolean(draft.fillWall)}`, `compartments:${draft.compartments || 'unconfirmed'}`, `source:${draft.source}`, 'verification:APP_PARAMETRIC_ONLY'], placedAt: new Date(now).toISOString() },
+    furniture: { id: furnitureId, name: draft.label, category: /衣櫃/.test(draft.label) ? 'wardrobe' : 'cabinet', x, y, width: displayWidth, depth: displayDepth, height: draft.height, elevation: draft.elevation, rotationY: 0, colorHex: '#23301F', specNote: `口說定位；${WALL_LABEL[draft.wall]}；原始尺寸 ${effectiveWidth}×${draft.depth}×${draft.height}cm${draft.compartments ? `；均分 ${draft.compartments} 格` : ''}` },
+  };
+};
+
 export const PerimeterSurveyGuide: React.FC<Props> = ({ room, onUpdateRoom, onNotify }) => {
   const [text, setText] = useState('');
-  const [draft, setDraft] = useState<Draft | null>(null);
+  const [draft, setDraft] = useState<PerimeterDraft | null>(null);
   const [missing, setMissing] = useState<string[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [stairForm, setStairForm] = useState({ stairType: 'straight' as StairType, wall: 'top' as Wall, frontClearance: 0, rearClearance: 0, width: 90, depth: 300, flight1Risers: 8, treadDepth: 28, landingDepth: 90, flight2Risers: 8, turnDirection: 'left' as 'left' | 'right' });
@@ -208,22 +230,10 @@ export const PerimeterSurveyGuide: React.FC<Props> = ({ room, onUpdateRoom, onNo
       const beam: Beam = { id: `guided-beam-${now}`, name: draft.label, width: draft.width, depth: draft.depth, clearHeight: draft.clearHeight, orientation: horizontal ? 'horizontal' : 'vertical', y: horizontal ? draft.offset : 0, x: horizontal ? 0 : draft.offset };
       onUpdateRoom({ ...room, beams: [...(room.beams || []), beam], lastUpdated: new Date().toISOString() });
     } else if (draft.kind === 'cabinet') {
-      const horizontal = draft.wall === 'top' || draft.wall === 'bottom';
-      const wallSpan = horizontal ? room.width : room.length;
-      const effectiveWidth = draft.fillWall ? Math.max(0, wallSpan - draft.offset) : draft.width;
-      const x = horizontal ? draft.offset : draft.wall === 'left' ? 0 : Math.max(0, room.width - draft.depth);
-      const y = horizontal ? (draft.wall === 'top' ? 0 : Math.max(0, room.length - draft.depth)) : draft.offset;
-      const displayWidth = horizontal ? effectiveWidth : draft.depth;
-      const displayDepth = horizontal ? draft.depth : effectiveWidth;
-      const placedId = `guided-cabinet-${now}`;
-      const furnitureId = `f-${placedId}`;
-      const block: PlacedBlockItem = { id: placedId, furnitureId, blockId: `minusplus-${draft.label}-${effectiveWidth}x${draft.depth}`, name: draft.label, category: 'furniture', subCategory: 'cabinet:parametric', x, y, widthCm: displayWidth, depthCm: displayDepth, heightCm: draft.height, elevationCm: draft.elevation, cadLayer: 'A-FURN-MILL', colorIndex: 3, rotationDeg: 0, snappedTo: WALL_LABEL[draft.wall], tags: [`wall:${draft.wall}`, `fillWall:${Boolean(draft.fillWall)}`, `compartments:${draft.compartments || 'unconfirmed'}`, `source:${draft.source}`, 'verification:APP_PARAMETRIC_ONLY'], placedAt: new Date().toISOString() };
-      const furniture: FurnitureItem = { id: furnitureId, name: draft.label, category: /衣櫃/.test(draft.label) ? 'wardrobe' : 'cabinet', x, y, width: displayWidth, depth: displayDepth, height: draft.height, elevation: draft.elevation, rotationY: 0, colorHex: '#23301F', specNote: `口說定位；${WALL_LABEL[draft.wall]}；原始尺寸 ${effectiveWidth}×${draft.depth}×${draft.height}cm${draft.compartments ? `；均分 ${draft.compartments} 格` : ''}` };
+      const { block, furniture } = createParametricCabinetPlacement(draft, room, now);
       onUpdateRoom({ ...room, placedBlocks: [...(room.placedBlocks || []), block], furniture: [...(room.furniture || []), furniture], lastUpdated: new Date().toISOString() });
     } else {
-      const horizontal = draft.wall === 'top' || draft.wall === 'bottom';
-      const definition = STAIR_BLOCK_CATALOG[draft.stairType];
-      const block: PlacedBlockItem = { id: `guided-stair-${now}`, blockId: definition.blockId, name: draft.label, category: 'detail_joint', subCategory: `stair:${draft.stairType}`, x: horizontal ? draft.offset : draft.wall === 'left' ? 0 : Math.max(0, room.width - draft.width), y: horizontal ? (draft.wall === 'top' ? 0 : Math.max(0, room.length - draft.depth - (draft.rearClearance || 0))) : draft.offset, widthCm: horizontal ? draft.width : draft.depth, depthCm: horizontal ? draft.depth : draft.width, cadLayer: 'A-STAIR', colorIndex: 3, rotationDeg: horizontal ? 0 : 90, snappedTo: WALL_LABEL[draft.wall], tags: [`stairType:${draft.stairType}`, `frontClearance:${draft.offset}`, `rearClearance:${draft.rearClearance || 0}`, `flight1Risers:${draft.flight1Risers || draft.risers || 'unconfirmed'}`, `treadDepth:${draft.treadDepth || 'unconfirmed'}`, `landingDepth:${draft.landingDepth || 0}`, `flight2Risers:${draft.flight2Risers || 0}`, `risers:${draft.risers || 'unconfirmed'}`, `turn:${draft.turnDirection || 'not_applicable'}`, `verification:${definition.verificationStatus}`, `source:${draft.source}`], placedAt: new Date().toISOString() };
+      const block = createParametricStairBlock(draft, room, now);
       onUpdateRoom({ ...room, placedBlocks: [...(room.placedBlocks || []), block], lastUpdated: new Date().toISOString() });
     }
     onNotify(`✓ 已写入：${draft.summary.join(' · ')}`);
