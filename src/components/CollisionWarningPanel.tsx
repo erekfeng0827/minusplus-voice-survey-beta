@@ -24,6 +24,7 @@ interface CollisionWarningPanelProps {
   onSelectFurniture: (id: string | null) => void;
   collisionWarningEnabled: boolean;
   onToggleWarning: (enabled: boolean) => void;
+  showDemoPresets?: boolean;
 }
 
 export const CollisionWarningPanel: React.FC<CollisionWarningPanelProps> = ({
@@ -37,6 +38,7 @@ export const CollisionWarningPanel: React.FC<CollisionWarningPanelProps> = ({
   onSelectFurniture,
   collisionWarningEnabled,
   onToggleWarning,
+  showDemoPresets = false,
 }) => {
   const criticalCount = issues.filter((i) => i.severity === 'CRITICAL').length;
   const warningCount = issues.filter((i) => i.severity === 'WARNING').length;
@@ -85,7 +87,7 @@ export const CollisionWarningPanel: React.FC<CollisionWarningPanelProps> = ({
 
       {/* Preset Switchers & Quick Fix Bar */}
       <div className="p-3 bg-slate-950/60 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-1">
+        {showDemoPresets && <div className="flex items-center gap-1">
           <button
             onClick={onResetToConflictPreset}
             className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] border border-slate-700 transition"
@@ -100,7 +102,7 @@ export const CollisionWarningPanel: React.FC<CollisionWarningPanelProps> = ({
           >
             合規優化情境
           </button>
-        </div>
+        </div>}
 
         {issues.length > 0 && (
           <button
@@ -116,7 +118,12 @@ export const CollisionWarningPanel: React.FC<CollisionWarningPanelProps> = ({
 
       {/* Issues List */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
-        {issues.length === 0 ? (
+        {furnitureList.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-6 text-center space-y-3 bg-slate-950/60 border border-slate-700/50 rounded-xl my-4">
+            <Layers className="h-8 w-8 text-slate-400" />
+            <div><h5 className="font-bold text-white text-sm">目前空间尚无家具</h5><p className="mt-1 text-[11px] leading-relaxed text-slate-400">请先在平面配置加入家具或柜体；3D 将读取同一份案件资料，不再自动放入示范物件。</p></div>
+          </div>
+        ) : issues.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-6 text-center space-y-3 bg-emerald-950/20 border border-emerald-800/30 rounded-xl my-4">
             <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
               <CheckCircle2 className="w-7 h-7" />
@@ -124,16 +131,16 @@ export const CollisionWarningPanel: React.FC<CollisionWarningPanelProps> = ({
             <div>
               <h5 className="font-bold text-white text-sm">3D 空間幾何契約全部合規</h5>
               <p className="text-[11px] text-slate-300 mt-1 max-w-xs leading-relaxed">
-                所有家具設備均已完美避讓 230cm 空調降板、265cm 大梁淨高與門扇迴旋半徑，且高程全數符合 5 倍數原則。
+                目前资料未侦测到碰撞；这是即时检查结果，仍需施工图回读与独立验收。
               </p>
             </div>
-            <button
+            {showDemoPresets && <button
               onClick={onResetToConflictPreset}
               className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1 mt-2"
             >
               <RotateCcw className="w-3 h-3" />
               點擊重新模擬衝突情境
-            </button>
+            </button>}
           </div>
         ) : (
           issues.map((issue) => {

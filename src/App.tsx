@@ -579,7 +579,7 @@ export default function App() {
               </div>
               {projectShell && activeMainTab !== '3d_simulation' && <div className="absolute right-3 top-3 z-20 flex rounded-xl border survey-border survey-card p-1 text-xs font-bold"><button onClick={() => setShowWholeHouse(true)} className={`rounded-lg px-3 py-2 ${showWholeHouse ? 'bg-[#B4503A] text-white' : 'survey-muted'}`}>整戶底圖</button><button onClick={() => setShowWholeHouse(false)} className={`rounded-lg px-3 py-2 ${!showWholeHouse ? 'bg-[#B4503A] text-white' : 'survey-muted'}`}>目前空間</button></div>}
               {activeMainTab === '3d_simulation' ? (
-                <ThreeDSceneView room={currentRoom} onNotify={showToast} onOpenCustomBlocks={() => setIsCustomBlockOpen(true)} />
+                <ThreeDSceneView room={currentRoom} onUpdateRoom={handleUpdateRoom} onNotify={showToast} onOpenCustomBlocks={() => setIsCustomBlockOpen(true)} />
               ) : projectShell && showWholeHouse ? (
                 <div className="h-full w-full p-3 pt-16"><WholeHouseShellCanvas shell={projectShell} /></div>
               ) : (

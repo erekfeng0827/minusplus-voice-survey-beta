@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { RoomData, FurnitureItem, CollisionOptimizationSolution } from '../types';
 import { DEFAULT_MATERIALS } from '../data/materialsAndConfig';
-import { DEFAULT_FURNITURE_CONFLICT, DEFAULT_FURNITURE_OPTIMIZED } from '../data/defaultFurniture';
 import { checkCollisionAndContractCompliance } from '../utils/collisionWarningEngine';
 import { CollisionWarningPanel } from './CollisionWarningPanel';
 import {
@@ -25,12 +24,14 @@ import { ThreeDRenderViewerModal } from './ThreeDRenderViewerModal';
 
 interface ThreeDSceneViewProps {
   room: RoomData;
+  onUpdateRoom: (room: RoomData) => void;
   onNotify?: (msg: string) => void;
   onOpenCustomBlocks?: () => void;
 }
 
 export const ThreeDSceneView: React.FC<ThreeDSceneViewProps> = ({
   room,
+  onUpdateRoom,
   onNotify,
   onOpenCustomBlocks,
 }) => {
@@ -42,7 +43,7 @@ export const ThreeDSceneView: React.FC<ThreeDSceneViewProps> = ({
   const [enableAO, setEnableAO] = useState<boolean>(true); // 光影即時渲染開關 (AO 環境光遮蔽與接觸陰影)
 
   // Collision Warning System State
-  const [furnitureList, setFurnitureList] = useState<FurnitureItem[]>(DEFAULT_FURNITURE_CONFLICT);
+  const [furnitureList, setFurnitureList] = useState<FurnitureItem[]>(room.furniture || []);
   const [collisionWarningEnabled, setCollisionWarningEnabled] = useState<boolean>(true);
   const [selectedFurnitureId, setSelectedFurnitureId] = useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState<boolean>(true);
@@ -50,6 +51,16 @@ export const ThreeDSceneView: React.FC<ThreeDSceneViewProps> = ({
   // 3D Render Snapshot Modal State
   const [isRenderModalOpen, setIsRenderModalOpen] = useState<boolean>(false);
   const [capturedImageDataUrl, setCapturedImageDataUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFurnitureList(room.furniture || []);
+  }, [room.id, room.furniture]);
+
+  const persistFurniture = (next: FurnitureItem[], message?: string) => {
+    setFurnitureList(next);
+    onUpdateRoom({ ...room, furniture: next, lastUpdated: new Date().toISOString() });
+    if (message) onNotify?.(message);
+  };
 
   const handleCaptureRender = () => {
     if (!rendererRef.current || !sceneRef.current || !cameraRef.current) return;
@@ -293,22 +304,18 @@ export const ThreeDSceneView: React.FC<ThreeDSceneViewProps> = ({
 
   // Apply single solution
   const handleApplySolution = (furnitureId: string, solution: CollisionOptimizationSolution) => {
-    setFurnitureList((prev) =>
-      prev.map((f) => {
-        if (f.id !== furnitureId) return f;
-        return {
-          ...f,
-          ...solution.newValues,
-        };
-      })
-    );
-    onNotify?.(`已套用「${solution.title}」優化方案！`);
+    const next = furnitureList.map((f) => f.id === furnitureId ? { ...f, ...solution.newValues } : f);
+    persistFurniture(next, `已套用「${solution.title}」，并同步写回平面配置。`);
   };
 
   // Apply all optimizations
   const handleApplyAllOptimizations = () => {
-    setFurnitureList(DEFAULT_FURNITURE_OPTIMIZED);
-    onNotify?.('✓ 已依幾何契約全數完成避讓，100% 合規通過！');
+    const next = collisionIssues.reduce((items, issue) => {
+      const solution = issue.solutions[0];
+      if (!solution) return items;
+      return items.map((item) => item.id === issue.furnitureId ? { ...item, ...solution.newValues } : item);
+    }, furnitureList);
+    persistFurniture(next, '已套用目前可计算的避让建议并同步写回；仍需重新检查剩余冲突。');
   };
 
   function rebuild3DModel(
@@ -1044,12 +1051,10 @@ export const ThreeDSceneView: React.FC<ThreeDSceneViewProps> = ({
               onApplySolution={handleApplySolution}
               onApplyAllOptimizations={handleApplyAllOptimizations}
               onResetToConflictPreset={() => {
-                setFurnitureList(DEFAULT_FURNITURE_CONFLICT);
-                onNotify?.('已載入典型室內設計違規碰撞情境！');
+                onNotify?.('正式案件不载入示范家具。');
               }}
               onResetToOptimizedPreset={() => {
-                setFurnitureList(DEFAULT_FURNITURE_OPTIMIZED);
-                onNotify?.('已載入 100% 合規避讓配置！');
+                onNotify?.('正式案件只使用目前空间的真实家具资料。');
               }}
               selectedFurnitureId={selectedFurnitureId}
               onSelectFurniture={focusOnFurniture}
