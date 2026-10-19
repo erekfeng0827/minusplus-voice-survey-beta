@@ -345,13 +345,31 @@ export const CleanMeasureWorkspace: React.FC<CleanMeasureWorkspaceProps> = ({
               </span>
             </div>
 
-            <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
-              <span className="text-neutral-400">全室預設丈量壁厚：</span>
-              <span className="px-2 py-0.5 rounded bg-[#182216] border border-[#3F5B63] text-amber-300 font-mono font-bold">
-                {currentRoom.wallConfigs ? '個別設定' : (currentRoom.wallThickness || 10) + ' cm'}
-              </span>
-              <span className="break-words text-neutral-500 text-[11px]">(內牆統一10cm · 外牆獨立15cm)</span>
-            </div>
+            <div className="text-[11px] text-neutral-400">所有尺寸都可直接點數字修改</div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="field-dimensions-first-screen">
+            {[
+              { label: '總長', value: currentRoom.length, update: (value: number) => handleUpdateDimensions(currentRoom.width, value) },
+              { label: '總寬', value: currentRoom.width, update: (value: number) => handleUpdateDimensions(value, currentRoom.length) },
+              { label: '淨高', value: currentRoom.height, update: (value: number) => handleUpdateDimensions(currentRoom.width, currentRoom.length, value) },
+              { label: '牆厚', value: currentRoom.wallThickness || 10, update: (value: number) => onUpdateRoom({ ...currentRoom, wallThickness: Math.max(1, Number(value) || 10), lastUpdated: new Date().toISOString() }) },
+            ].map((field) => (
+              <label key={field.label} className="rounded-xl border border-[#3F5B63]/60 bg-[#0d140e] px-3 py-2">
+                <span className="block text-[10px] font-bold text-neutral-400">{field.label}</span>
+                <span className="flex items-center gap-1">
+                  <input
+                    aria-label={`${field.label}（公分）`}
+                    type="number"
+                    inputMode="decimal"
+                    value={field.value}
+                    onChange={(event) => field.update(Number(event.target.value))}
+                    className="min-w-0 w-full bg-transparent text-lg font-black text-amber-200 outline-none"
+                  />
+                  <span className="text-[10px] text-neutral-500">cm</span>
+                </span>
+              </label>
+            ))}
           </div>
 
           {/* 🌟 頂部頁籤切換：將雜亂的多個面板分流，預設開啟【⚡ 極簡快速丈量】 */}

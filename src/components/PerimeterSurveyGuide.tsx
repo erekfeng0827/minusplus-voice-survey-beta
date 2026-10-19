@@ -202,6 +202,31 @@ export const PerimeterSurveyGuide: React.FC<Props> = ({ room, onUpdateRoom, onNo
             <div className="rounded-xl border border-[#3F5B63]/50 px-3 py-2 text-[11px] text-[#DDD7CE]">{room.roomName} · {room.width} × {room.length} cm</div>
           </div>
 
+          <div id="stair-insert-panel" className="rounded-2xl border border-amber-500/50 bg-amber-500/10 p-3" data-testid="stair-insert-panel">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <strong className="text-sm text-amber-200">插入樓梯</strong>
+              <span className="text-[10px] text-[#DDD7CE]/70">先選類型，再改牆面與尺寸</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {([
+                ['straight', '直梯', '北牆直梯，離牆角0，寬90，總長300，共16階'],
+                ['l_shape', 'L 型梯', '北牆L型梯，離牆角0，寬90，總長300，共16階，左轉'],
+                ['u_shape', 'U 型梯', '北牆U型梯，離牆角0，寬180，總長300，共16階，左轉'],
+                ['spiral', '旋轉梯', '北牆旋轉梯，離牆角0，寬180，總長180，共16階，左轉'],
+              ] as const).map(([type, label, command]) => (
+                <button
+                  key={type}
+                  type="button"
+                  aria-label={`插入${label}`}
+                  onClick={() => { setText(command); prepare(command); }}
+                  className="min-h-12 rounded-xl border border-amber-400/40 bg-[#182216] px-3 py-2 text-sm font-black text-amber-100 hover:bg-amber-500 hover:text-black"
+                >
+                  ＋ {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-4 gap-2">
             {(Object.keys(WALL_LABEL) as Wall[]).map((wall) => <button key={wall} type="button" onClick={() => setText(`${WALL_LABEL[wall]} `)} className="rounded-xl border border-[#3F5B63]/50 bg-[#182216] px-2 py-2 text-[11px] font-bold text-[#DDD7CE] hover:border-amber-400 hover:text-amber-300">{WALL_LABEL[wall]}</button>)}
           </div>
