@@ -1,4 +1,5 @@
 import { RoomData, Door, ProjectShell, StitchedRoomPlacement, StitchedFloorPlanResult } from '../types';
+import { canonicalWall } from './openingPlanGeometry';
 
 export interface StitchGraphNode {
   room: RoomData;
@@ -350,6 +351,28 @@ export function getDoorLocalGeometry(door: Door, roomWidth: number, roomLength: 
   }
 
   return { midX, midY, normalX, normalY, normalAngle, width: w, offset };
+}
+
+function getOpeningLocalEndpoints(
+  opening: Pick<Door, 'wall' | 'offset' | 'offsetReference' | 'width'>,
+  roomWidth: number,
+  roomLength: number,
+) {
+  const wall = canonicalWall(opening.wall);
+  const wallLength = wall === 'top' || wall === 'bottom' ? roomWidth : roomLength;
+  const width = Math.max(0, Math.min(opening.width || 0, wallLength));
+  const requestedOffset = Number.isFinite(opening.offset) ? opening.offset : 0;
+  const rawStart = opening.offsetReference === 'right'
+    ? wallLength - requestedOffset - width
+    : opening.offsetReference === 'center'
+      ? requestedOffset - width / 2
+      : requestedOffset;
+  const startOffset = Math.max(0, Math.min(rawStart, wallLength - width));
+
+  if (wall === 'top') return [{ x: startOffset, y: 0 }, { x: startOffset + width, y: 0 }] as const;
+  if (wall === 'bottom') return [{ x: startOffset, y: roomLength }, { x: startOffset + width, y: roomLength }] as const;
+  if (wall === 'left') return [{ x: 0, y: startOffset }, { x: 0, y: startOffset + width }] as const;
+  return [{ x: roomWidth, y: startOffset }, { x: roomWidth, y: startOffset + width }] as const;
 }
 
 /**
@@ -1327,11 +1350,13 @@ export function generateFullHouseDxfString(
   dxf += '0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n9\n$INSUNITS\n70\n4\n0\nENDSEC\n';
 
   // 2. TABLES (LAYERS)
-  dxf += '0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLAYER\n70\n10\n';
+  dxf += '0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLAYER\n70\n12\n';
   const layers = [
     { name: 'WALL', color: 7 }, // White 0.50mm
     { name: 'SHARED_WALL', color: 6 }, // Magenta 0.35mm (共用隔間牆)
     { name: 'DOOR_ANCHOR', color: 4 }, // Cyan 0.25mm
+    { name: 'DOOR', color: 4 },
+    { name: 'WINDOW', color: 5 },
     { name: 'BEAM', color: 1 }, // Red 0.35mm
     { name: 'DIMENSION', color: 3 }, // Green 0.18mm
     { name: 'ROOM_LABEL', color: 2 }, // Yellow
@@ -1404,9 +1429,17 @@ export function generateFullHouseDxfString(
     dxf += text('ROOM_LABEL', centerGlobal.x - 30, centerGlobal.y - 10, 10, room.roomName);
     dxf += text('ROOM_LABEL', centerGlobal.x - 20, centerGlobal.y + 15, 8, `${room.width}x${room.length}cm (${ping}坪)`);
 
-    // 門洞標記
+    // 門洞實測線與標記
     if (room.doors) {
       for (const d of room.doors) {
+        const [localStart, localEnd] = getOpeningLocalEndpoints(d, room.width, room.length);
+        const rotatedStart = rotatePoint(localStart.x, localStart.y, placement.rotation);
+        const rotatedEnd = rotatePoint(localEnd.x, localEnd.y, placement.rotation);
+        const globalStart = { x: placement.x + rotatedStart.x, y: placement.y + rotatedStart.y };
+        const globalEnd = { x: placement.x + rotatedEnd.x, y: placement.y + rotatedEnd.y };
+        dxf += line('DOOR', globalStart.x, globalStart.y, globalEnd.x, globalEnd.y);
+        dxf += text('DOOR', (globalStart.x + globalEnd.x) / 2, (globalStart.y + globalEnd.y) / 2, 5, `${d.name} W${d.width} H${d.height}`);
+
         const geom = getDoorLocalGeometry(d, room.width, room.length);
         const midRot = rotatePoint(geom.midX, geom.midY, placement.rotation);
         const gx = placement.x + midRot.x;
@@ -1415,6 +1448,17 @@ export function generateFullHouseDxfString(
           dxf += text('DOOR_ANCHOR', gx - 10, gy, 8, `[門片${d.anchorTag}] ${d.width}cm`);
         }
       }
+    }
+
+    // 窗戶實測線、寬高與台度
+    for (const windowItem of room.windows || []) {
+      const [localStart, localEnd] = getOpeningLocalEndpoints(windowItem, room.width, room.length);
+      const rotatedStart = rotatePoint(localStart.x, localStart.y, placement.rotation);
+      const rotatedEnd = rotatePoint(localEnd.x, localEnd.y, placement.rotation);
+      const globalStart = { x: placement.x + rotatedStart.x, y: placement.y + rotatedStart.y };
+      const globalEnd = { x: placement.x + rotatedEnd.x, y: placement.y + rotatedEnd.y };
+      dxf += line('WINDOW', globalStart.x, globalStart.y, globalEnd.x, globalEnd.y);
+      dxf += text('WINDOW', (globalStart.x + globalEnd.x) / 2, (globalStart.y + globalEnd.y) / 2, 5, `${windowItem.name} W${windowItem.width} H${windowItem.height} SILL${windowItem.sillHeight}`);
     }
 
     for (const item of room.placedBlocks || []) {

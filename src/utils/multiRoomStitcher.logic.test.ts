@@ -9,6 +9,7 @@ const base = (id: string, name: string): RoomData => ({
 
 const living = base('living', '客厅');
 living.doors = [{ id: 'living-A', name: '通道 A', width: 90, height: 210, wall: 'right', offset: 180, anchorTag: 'A' }];
+living.windows = [{ id: 'living-window', name: '客厅窗', width: 180, height: 150, sillHeight: 90, wall: 'top', offset: 80 }];
 const bedroom = base('bedroom', '卧室');
 bedroom.width = 300;
 bedroom.length = 360;
@@ -35,6 +36,12 @@ assert.match(dxf, /IMPORTED_SHELL/);
 assert.match(dxf, /SOURCE_SHELL:shell.dxf/);
 assert.match(dxf, /FURNITURE/);
 assert.match(dxf, /沙发 200x90cm/);
+assert.match(dxf, /2\nDOOR\n/, 'full-house DXF must define a dedicated door layer');
+assert.match(dxf, /8\nDOOR\n/, 'full-house DXF must export measured door geometry');
+assert.match(dxf, /通道 A W90 H210/, 'door dimensions must remain inspectable in DXF');
+assert.match(dxf, /2\nWINDOW\n/, 'full-house DXF must define a dedicated window layer');
+assert.match(dxf, /8\nWINDOW\n/, 'full-house DXF must export measured window geometry');
+assert.match(dxf, /客厅窗 W180 H150 SILL90/, 'window and sill dimensions must remain inspectable in DXF');
 assert.match(dxf, /10\n100\.0\n20\n200\.0/, 'shell coordinates must be exported as cm x10 millimeters');
 
 console.log('Multi-room stitcher: PASS');
