@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { appendProjectShellSegment, deleteProjectShellSegment, findFurnitureCollisions, polygonsOverlap, updateProjectShellPoint, wholeHouseFurniturePolygons } from './WholeHouseShellCanvas';
+import { appendProjectShellSegment, deleteProjectShellSegment, findFurnitureClearanceWarnings, findFurnitureCollisions, polygonsOverlap, updateProjectShellPoint, wholeHouseFurniturePolygons } from './WholeHouseShellCanvas';
 import type { ProjectShell } from '../types';
 
 const shell: ProjectShell = {
@@ -26,4 +26,7 @@ assert.deepEqual(polygons[0].points[2], { x: 610, y: 170 });
 assert.equal(polygonsOverlap(polygons[0].points, [{ x: 600, y: 150 }, { x: 700, y: 150 }, { x: 700, y: 250 }, { x: 600, y: 250 }]), true);
 assert.equal(polygonsOverlap(polygons[0].points, [{ x: 700, y: 300 }, { x: 800, y: 300 }, { x: 800, y: 400 }, { x: 700, y: 400 }]), false);
 assert.deepEqual([...findFurnitureCollisions([polygons[0], { ...polygons[0], id: 'other', points: polygons[0].points.map((point) => ({ x: point.x + 20, y: point.y })) }])].sort(), ['other', polygons[0].id].sort());
+const near = { ...polygons[0], id: 'near', points: polygons[0].points.map((point) => ({ x: point.x + 150, y: point.y })) };
+assert.deepEqual([...findFurnitureClearanceWarnings([polygons[0], near], 90)].sort(), ['near', polygons[0].id].sort());
+assert.equal(findFurnitureClearanceWarnings([polygons[0], { ...near, points: polygons[0].points.map((point) => ({ x: point.x + 250, y: point.y })) }], 90).size, 0);
 console.log('WholeHouseShellCanvas editable geometry: PASS');

@@ -3,6 +3,7 @@ import { ProjectShell, RoomData, StitchedRoomPlacement } from '../types';
 import { Check, MousePointer2, PenLine, RotateCcw, Trash2, X } from 'lucide-react';
 import { readFileFromIndexedDb } from './FloorplanPdfImportModal';
 import { syncFurnitureFromPlacedBlocks } from '../utils/placedBlockFurnitureSync';
+import { checkCollisionAndContractCompliance } from '../utils/collisionWarningEngine';
 
 interface WholeHouseShellCanvasProps {
   shell: ProjectShell;
@@ -82,6 +83,29 @@ export function findFurnitureCollisions(items: ReturnType<typeof wholeHouseFurni
   return collisions;
 }
 
+const polygonBounds = (points: Array<{ x: number; y: number }>) => ({
+  minX: Math.min(...points.map((point) => point.x)), maxX: Math.max(...points.map((point) => point.x)),
+  minY: Math.min(...points.map((point) => point.y)), maxY: Math.max(...points.map((point) => point.y)),
+});
+
+export function findFurnitureClearanceWarnings(items: ReturnType<typeof wholeHouseFurniturePolygons>, minimumCm = 90): Set<string> {
+  const warnings = new Set<string>();
+  items.forEach((item, index) => items.slice(index + 1).forEach((other) => {
+    if (item.roomId !== other.roomId || polygonsOverlap(item.points, other.points)) return;
+    const a = polygonBounds(item.points);
+    const b = polygonBounds(other.points);
+    const gapX = Math.max(b.minX - a.maxX, a.minX - b.maxX, 0);
+    const gapY = Math.max(b.minY - a.maxY, a.minY - b.maxY, 0);
+    const overlapX = Math.min(a.maxX, b.maxX) - Math.max(a.minX, b.minX);
+    const overlapY = Math.min(a.maxY, b.maxY) - Math.max(a.minY, b.minY);
+    const clearance = overlapX > 0 ? gapY : overlapY > 0 ? gapX : Math.hypot(gapX, gapY);
+    if (clearance <= 0 || clearance >= minimumCm) return;
+    warnings.add(item.id);
+    warnings.add(other.id);
+  }));
+  return warnings;
+}
+
 export const WholeHouseShellCanvas: React.FC<WholeHouseShellCanvasProps> = ({ shell, compact = false, editable = false, onChange, rooms = [], placements = [], onUpdateRoom }) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<ProjectShell | null>(null);
@@ -96,9 +120,13 @@ export const WholeHouseShellCanvas: React.FC<WholeHouseShellCanvasProps> = ({ sh
   const segmentCountLabel = useMemo(() => `${shell.segments.length} 条线段`, [shell.segments.length]);
   const furniturePolygons = useMemo(() => wholeHouseFurniturePolygons(rooms, placements), [rooms, placements]);
   const collisionIds = useMemo(() => findFurnitureCollisions(furniturePolygons), [furniturePolygons]);
+  const clearanceWarningIds = useMemo(() => findFurnitureClearanceWarnings(furniturePolygons), [furniturePolygons]);
   const selectedFurniture = furniturePolygons.find((item) => item.id === selectedFurnitureId) || null;
   const selectedFurnitureRoom = selectedFurniture ? rooms.find((room) => room.id === selectedFurniture.roomId) : null;
   const selectedBlock = selectedFurnitureRoom?.placedBlocks?.find((block) => block.id === selectedFurniture?.blockId) || null;
+  const selectedContractIssues = useMemo(() => selectedFurnitureRoom && selectedBlock
+    ? checkCollisionAndContractCompliance(selectedFurnitureRoom, selectedFurnitureRoom.furniture || []).filter((issue) => issue.furnitureId === selectedBlock.furnitureId || issue.furnitureName === selectedBlock.name)
+    : [], [selectedFurnitureRoom, selectedBlock]);
 
   useEffect(() => {
     let objectUrl: string | null = null;
@@ -174,12 +202,13 @@ export const WholeHouseShellCanvas: React.FC<WholeHouseShellCanvasProps> = ({ sh
             {shell.zones.map((zone) => <polygon key={zone.id} points={zone.polygon.map((p) => `${p.x},${p.y}`).join(' ')} />)}
           </g>
           <g fill="#B4503A" fillOpacity="0.16" strokeWidth="1.5" vectorEffect="non-scaling-stroke">
-            {furniturePolygons.map((item) => <polygon key={item.id} points={item.points.map((point) => `${point.x},${point.y}`).join(' ')} stroke={collisionIds.has(item.id) ? '#ef4444' : selectedFurnitureId === item.id ? '#E0A83C' : '#B4503A'} strokeWidth={collisionIds.has(item.id) || selectedFurnitureId === item.id ? 3 : 1.5} className={onUpdateRoom ? 'cursor-pointer' : undefined} onClick={(event) => { if (!onUpdateRoom) return; event.stopPropagation(); setSelectedFurnitureId(item.id); }}><title>{item.roomName} · {item.name}{collisionIds.has(item.id) ? ' · 配置碰撞' : ''}</title></polygon>)}
+            {furniturePolygons.map((item) => <polygon key={item.id} points={item.points.map((point) => `${point.x},${point.y}`).join(' ')} stroke={collisionIds.has(item.id) ? '#ef4444' : clearanceWarningIds.has(item.id) ? '#f59e0b' : selectedFurnitureId === item.id ? '#E0A83C' : '#B4503A'} strokeWidth={collisionIds.has(item.id) || clearanceWarningIds.has(item.id) || selectedFurnitureId === item.id ? 3 : 1.5} className={onUpdateRoom ? 'cursor-pointer' : undefined} onClick={(event) => { if (!onUpdateRoom) return; event.stopPropagation(); setSelectedFurnitureId(item.id); }}><title>{item.roomName} · {item.name}{collisionIds.has(item.id) ? ' · 配置碰撞' : clearanceWarningIds.has(item.id) ? ' · 通道净距小于90cm' : ''}</title></polygon>)}
           </g>
         </svg>
         {editable && selectedBlock && selectedFurnitureRoom && <div className="survey-card absolute inset-x-2 bottom-2 max-h-[48%] overflow-y-auto rounded-2xl border survey-border p-3 shadow-2xl sm:left-auto sm:right-4 sm:w-80">
           <div className="flex items-center justify-between gap-2"><div className="min-w-0"><strong className="survey-text block truncate">{selectedBlock.name}</strong><span className={`text-[10px] ${collisionIds.has(selectedFurnitureId || '') ? 'text-red-500' : 'survey-muted'}`}>{selectedFurnitureRoom.roomName}{collisionIds.has(selectedFurnitureId || '') ? ' · 与其他家具重叠' : ' · 全局配置'}</span></div><button type="button" onClick={() => setSelectedFurnitureId(null)} className="rounded-lg p-2" aria-label="关闭家具编辑"><X className="h-4 w-4" /></button></div>
           <div className="mt-2 grid grid-cols-2 gap-2">{([['x', 'X', selectedBlock.x], ['y', 'Y', selectedBlock.y], ['widthCm', '宽', selectedBlock.widthCm], ['depthCm', '深', selectedBlock.depthCm], ['rotationDeg', '角度', selectedBlock.rotationDeg || 0]] as const).map(([field, label, value]) => <label key={field} className="survey-muted text-[10px]">{label}（{field === 'rotationDeg' ? '°' : 'cm'}）<input type="number" min="0" step={field === 'rotationDeg' ? 15 : 5} value={value} onChange={(event) => updateFurniture(field, Number(event.target.value))} className="survey-input mt-1 w-full rounded-lg border px-2 py-2 text-sm" /></label>)}</div>
+          {(clearanceWarningIds.has(selectedFurnitureId || '') || selectedContractIssues.length > 0) && <div className="mt-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-2 text-[10px] text-amber-600">{clearanceWarningIds.has(selectedFurnitureId || '') && <div>通道净距小于 90cm，请调整家具位置。</div>}{selectedContractIssues.map((issue) => <div key={issue.id}>{issue.collidingWithTitle}：{issue.issueDescription}</div>)}</div>}
         </div>}
         {editable && selected && <div className="survey-card absolute inset-x-2 bottom-2 max-h-[52%] overflow-y-auto rounded-2xl border survey-border p-3 shadow-2xl sm:left-auto sm:right-4 sm:w-80">
           <div className="flex items-center justify-between gap-2"><div className="min-w-0"><strong className="survey-text block truncate">{selected.layer}</strong><span className="survey-muted text-[10px]">{selected.entityType} · {selected.points.length} 点</span></div><button type="button" onClick={() => setSelectedId(null)} className="rounded-lg p-2" aria-label="关闭线段编辑"><X className="h-4 w-4" /></button></div>
