@@ -472,7 +472,7 @@ export default function App() {
 
   return (
     // 🌟 100% 滿版無邊際畫布 (Overflow Hidden)
-    <div data-theme={theme} className="survey-app survey-light-surface relative w-full overflow-hidden antialiased selection:bg-[#B4503A]/25 selection:text-[#23301F]">
+    <div data-theme={theme} className="survey-app survey-light-surface relative w-full overflow-clip antialiased selection:bg-[#B4503A]/25 selection:text-[#23301F]">
       
       {/* 🌟 完美植入 CIS 字體系統 */}
       <style>{`

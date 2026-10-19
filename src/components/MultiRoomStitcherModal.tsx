@@ -33,6 +33,8 @@ interface MultiRoomStitcherModalProps {
   onNotify: (msg: string) => void;
 }
 
+const isCompactViewport = () => typeof window !== 'undefined' && window.innerWidth < 768;
+
 export const MultiRoomStitcherModal: React.FC<MultiRoomStitcherModalProps> = ({
   isOpen, onClose, rooms, onUpdateRooms, onNotify,
 }) => {
@@ -43,7 +45,7 @@ export const MultiRoomStitcherModal: React.FC<MultiRoomStitcherModalProps> = ({
   const [activeWorkflow, setActiveWorkflow] = useState<'topology' | 'dimensions' | 'area' | 'export'>('dimensions');
   
   // 🌟 UI 收納狀態
-  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState<boolean>(true);
+  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState<boolean>(() => !isCompactViewport());
   const [isRightToolsOpen, setIsRightToolsOpen] = useState<boolean>(false);
 
   const [areaUnit, setAreaUnit] = useState<'ping' | 'm2'>('ping');
@@ -281,7 +283,7 @@ export const MultiRoomStitcherModal: React.FC<MultiRoomStitcherModalProps> = ({
   const handleRoomPointerDown = (e: React.PointerEvent<SVGGElement>, roomId: string, x: number, y: number) => {
     e.stopPropagation();
     setSelectedRoomId(roomId);
-    setIsLeftPanelOpen(true);
+    if (!isCompactViewport()) setIsLeftPanelOpen(true);
     if (activeWorkflow !== 'topology') return;
     const point = clientToSvg(e.clientX, e.clientY);
     if (!point) return;
@@ -440,7 +442,9 @@ export const MultiRoomStitcherModal: React.FC<MultiRoomStitcherModalProps> = ({
           return (
             <button
               key={tab}
-              onClick={() => { setActiveWorkflow(tab); setIsLeftPanelOpen(true); }}
+              aria-label={labels[idx]}
+              title={labels[idx]}
+              onClick={() => { setActiveWorkflow(tab); setIsLeftPanelOpen(!isCompactViewport()); }}
               className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
                 isActive ? 'bg-[#3F5B63] text-[#F8F8F6] shadow-md' : 'text-[#8E8E93] hover:text-[#DDD7CE]'
               }`}
