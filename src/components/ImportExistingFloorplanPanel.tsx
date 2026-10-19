@@ -28,6 +28,7 @@ import {
   DEMO_PRESET_FLOORPLANS,
   alignTo5Multiple,
 } from '../utils/floorplanImporter';
+import { generateDxfString } from '../utils/dxfExporter';
 
 export interface ImportExistingFloorplanPanelProps {
   currentRoom: RoomData;
@@ -332,35 +333,18 @@ export const ImportExistingFloorplanPanel: React.FC<ImportExistingFloorplanPanel
     }
   };
 
-  // Export compliant Corey A3 DXF
+  // Export the currently parsed room locally. This is a geometry draft, not a reviewed A3 sheet.
   const handleExportCompliantDxf = () => {
     if (!importedResult) return;
-    const exportData = {
-      room: importedResult.room,
-      projectName: importedResult.room.roomName || '星玥灣8F_匯入平面圖',
-      compliant: true,
-      format: 'corey_a3',
-    };
-
-    fetch('/api/cad/export-dxf', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(exportData),
-    })
-      .then((res) => res.blob())
-      .then((blob) => {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${importedResult.room.roomName}_CoreyA3_PASS.dxf`;
-        a.click();
-        window.URL.revokeObjectURL(url);
-        onNotify?.(`📦 已匯出標準 Corey A3 施工圖 DXF (5倍數全合規)！`);
-      })
-      .catch((err) => {
-        console.error('DXF export error:', err);
-        onNotify?.('⚠️ DXF 匯出失敗，請稍後再試');
-      });
+    const content = generateDxfString(importedResult.room, importedResult.room.roomName || '匯入平面圖');
+    const blob = new Blob([content], { type: 'application/dxf;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${importedResult.room.roomName}_幾何草稿.dxf`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    onNotify?.('已匯出目前空間 DXF 幾何草稿；须经 AutoCAD 回读与顾问审查后才能作为施工图。');
   };
 
   const room = importedResult.room;
@@ -391,15 +375,15 @@ export const ImportExistingFloorplanPanel: React.FC<ImportExistingFloorplanPanel
             </span>
             <span className="text-[11px] bg-emerald-950 text-emerald-300 border border-emerald-500/50 px-2.5 py-0.5 rounded-full font-semibold flex items-center gap-1">
               <Sparkles className="w-3 h-3 text-emerald-400" />
-              雙向圖元精準對齊
+              解析結果需人工核對
             </span>
           </div>
         </div>
 
         <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
-          <strong>您手上已有繪製好的平面圖嗎？不需要再手動輸入長寬！</strong>
+          <strong>您手上已有繪製好的平面圖嗎？可先匯入并核对真实几何。</strong>
           <br />
-          直接上傳您的 AutoCAD (.dwg / .dxf)、JSON 專案檔、施工圖 PDF 或丈量圖紙照片。系統後端解析器將自動提取牆體外框、開間面寬、進深長度、大梁高程 (FL+265)、天花降板 (FL+230) 與門窗開口，並自動拘束至 5 倍數整數放樣契約，一鍵轉換為系統標準 <code>RoomData</code> 結構！
+          DXF／JSON 可读取实际向量或项目资料；DWG 需先转存 DXF；PDF／图片目前进入人工描图流程。任何尺寸、门窗、梁柱与 5 倍数调整都必须在套用前人工核对，不会凭文件名或图片自动猜测。
         </p>
 
         {/* Quick Demo Floor Plan Presets */}
@@ -872,7 +856,7 @@ export const ImportExistingFloorplanPanel: React.FC<ImportExistingFloorplanPanel
                   {room.roomName}
                 </text>
                 <text y="14" fill="#94a3b8" fontSize="8" fontFamily="monospace">
-                  比例 1:50 · 幾何契約: 5倍數全合規 (PASS)
+                  尺寸預覽 · {meta.rule5Adjusted ? '已执行5倍数调整，待人工核对' : '原始尺寸，待人工核对'}
                 </text>
               </g>
             </svg>
@@ -947,7 +931,7 @@ export const ImportExistingFloorplanPanel: React.FC<ImportExistingFloorplanPanel
           <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800">
             <div className="text-xs text-slate-400 font-mono flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-              <span>已建立完整 RoomData 幾何實體</span>
+              <span>已建立 RoomData 候选，等待人工核对</span>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -955,10 +939,10 @@ export const ImportExistingFloorplanPanel: React.FC<ImportExistingFloorplanPanel
               <button
                 onClick={handleExportCompliantDxf}
                 className="px-3 py-1.5 bg-indigo-900/80 hover:bg-indigo-800 text-indigo-200 border border-indigo-500/50 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition"
-                title="下載合規的 AutoCAD A3 DXF"
+                title="下載目前空間的 DXF 幾何草稿"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>匯出 Corey A3 DXF</span>
+                <span>匯出 DXF 幾何草稿</span>
               </button>
 
               {/* Add As New Room */}
