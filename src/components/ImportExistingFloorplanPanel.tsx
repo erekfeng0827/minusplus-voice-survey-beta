@@ -80,10 +80,10 @@ export const ImportExistingFloorplanPanel: React.FC<ImportExistingFloorplanPanel
       },
       rule5Adjusted: false,
       adjustedDetails: [],
-      doorsDetected: currentRoom.doors?.length || 1,
-      windowsDetected: currentRoom.windows?.length || 1,
-      beamsDetected: currentRoom.beams?.length || 1,
-      entityCount: { lines: 24, polylines: 4, dimensions: 4, texts: 6 },
+      doorsDetected: currentRoom.doors?.length || 0,
+      windowsDetected: currentRoom.windows?.length || 0,
+      beamsDetected: currentRoom.beams?.length || 0,
+      entityCount: { lines: 0, polylines: 0, dimensions: 0, texts: 0 },
       message: '當前作用中平面圖幾何已就緒。您可上傳既有 CAD (.dwg/.dxf)、JSON 專案或施工圖照片進行結構轉換！',
     },
   }));
@@ -189,8 +189,9 @@ export const ImportExistingFloorplanPanel: React.FC<ImportExistingFloorplanPanel
             parsedResult = parseDxfFloorplan(fileContent, file.name, autoAlign5Multiple);
           }
         } else {
-          // Do not silently fake 100 score for unparsed images/PDFs
-          parsedResult = parseImageFloorplan(file.name, autoAlign5Multiple);
+          throw new Error(ext === 'dwg'
+            ? '浏览器不能直接解析二进制 DWG，请先转存为 DXF。'
+            : 'PDF／图片目前只能保存后人工描图，不能自动猜测尺寸或构件。');
         }
       }
 

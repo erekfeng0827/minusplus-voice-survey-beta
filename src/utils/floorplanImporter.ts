@@ -62,66 +62,17 @@ export function createDefaultRoomScaffold(name = '匯入之既有平面圖'): Ro
     bathKitchenDrop: 215,
     wallThickness: 15,
     evaluation: {
-      score: 95,
-      clarity: '優良 (CAD 幾何向量萃取)',
-      missingElements: [],
-      rule5MultiplePassed: true,
-      suggestions: '已成功自既有平面圖解析圖元，面寬與進深均已對齊 5 倍數放樣契約。',
+      score: 0,
+      clarity: '待解析／待現場確認',
+      missingElements: ['門', '窗', '梁柱', '淨高'],
+      rule5MultiplePassed: false,
+      suggestions: '只建立空白資料结构，不会自动生成图面中未被解析出的构件。',
     },
-    beams: [
-      {
-        id: `beam_${uniqueId}_1`,
-        name: '結構大樑 B1 (265cm)',
-        width: 300,
-        depth: 45,
-        clearHeight: 265,
-        orientation: 'horizontal',
-        y: 80,
-      },
-    ],
-    doors: [
-      {
-        id: `door_${uniqueId}_1`,
-        name: '實木隔音房門 (90×210)',
-        width: 90,
-        height: 210,
-        wall: 'bottom',
-        offset: 30,
-        swingDirection: 'inward_left',
-      },
-    ],
-    windows: [
-      {
-        id: `win_${uniqueId}_1`,
-        name: '外牆景觀氣密窗 (150×150)',
-        width: 150,
-        height: 150,
-        sillHeight: 90,
-        wall: 'top',
-        offset: 75,
-      },
-    ],
+    beams: [],
+    doors: [],
+    windows: [],
     voiceMemos: [],
-    electricalPoints: [
-      {
-        id: `elec_${uniqueId}_1`,
-        type: 'socket_110v',
-        name: '地腳插座 110V',
-        x: 40,
-        y: 20,
-        elevation: 30,
-        circuit: 'E-01',
-      },
-      {
-        id: `elec_${uniqueId}_2`,
-        type: 'switch',
-        name: '門邊雙切開關',
-        x: 35,
-        y: 380,
-        elevation: 120,
-        circuit: 'L-01',
-      },
-    ],
+    electricalPoints: [],
     lastUpdated: new Date().toISOString(),
   };
 }
@@ -299,48 +250,18 @@ export function parseDxfFloorplan(
     beamHeight: finalBeamH,
     ceilingDrop: finalCeilDrop,
     evaluation: {
-      score: adjustedDetails.length > 0 ? 95 : 100,
-      clarity: '優良 (CAD 檔案幾何圖元直接解析)',
-      missingElements: [],
+      score: lineCount + polylineCount > 0 ? 70 : 0,
+      clarity: '仅完成 CAD 边界范围解析',
+      missingElements: ['門窗位置', '梁柱位置', '房间边界语义'],
       rule5MultiplePassed: true,
       suggestions:
         adjustedDetails.length > 0
           ? `已由系統自動執行 5 倍數幾何拘束：${adjustedDetails.join('；')}`
-          : '平面圖幾何完全符合星玥灣 5 倍數施工放樣契約！',
+          : '边界尺寸未被调整；门窗、梁柱与空间语义仍须现场确认。',
     },
-    beams: [
-      {
-        id: `beam_${baseRoom.id}_0`,
-        name: `結構大樑 (${finalBeamH}cm)`,
-        width: finalW,
-        depth: 45,
-        clearHeight: finalBeamH,
-        orientation: 'horizontal',
-        y: Math.min(80, Math.round(finalL * 0.2)),
-      },
-    ],
-    doors: [
-      {
-        id: `door_${baseRoom.id}_0`,
-        name: '進出開口門 (90×210)',
-        width: 90,
-        height: 210,
-        wall: 'bottom',
-        offset: Math.max(15, Math.min(40, finalW - 105)),
-        swingDirection: 'inward_left',
-      },
-    ],
-    windows: [
-      {
-        id: `win_${baseRoom.id}_0`,
-        name: '外牆景觀窗 (150×150)',
-        width: Math.min(finalW - 60, 150),
-        height: 150,
-        sillHeight: 90,
-        wall: 'top',
-        offset: Math.max(20, Math.round((finalW - Math.min(finalW - 60, 150)) / 2)),
-      },
-    ],
+    beams: [],
+    doors: [],
+    windows: [],
     lastUpdated: new Date().toISOString(),
   };
 
@@ -376,7 +297,7 @@ export function parseDxfFloorplan(
         dimensions: dimCount,
         texts: textCount,
       },
-      message: `✓ 成功解析 AutoCAD DXF 圖檔！已萃取開間 ${finalW}×${finalL}cm 與大梁高程 FL+${finalBeamH}，完美封裝為 RoomData！`,
+      message: `已解析 DXF 边界范围 ${finalW}×${finalL}cm；未自动生成门窗、梁柱或房间语义，须继续核对。`,
     },
   };
 }
