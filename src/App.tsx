@@ -961,7 +961,7 @@ export default function App() {
       {isExtendedHubOpen && <ExtendedFeaturesHubModal isOpen={isExtendedHubOpen} onClose={() => setIsExtendedHubOpen(false)} room={currentRoom} initialFeature={initialExtendedFeature} onUpdateRoom={handleUpdateRoom} onNotify={showToast} />}
       {isClaudeSpecOpen && <ClaudeDesignSpecModal isOpen={isClaudeSpecOpen} onClose={() => setIsClaudeSpecOpen(false)} onNotify={showToast} />}
       {isGoogleApiIdeOpen && <GoogleApiIdeDispatcherModal isOpen={isGoogleApiIdeOpen} onClose={() => setIsGoogleApiIdeOpen(false)} room={currentRoom} onUpdateRoom={handleUpdateRoom} onNotify={showToast} />}
-      {isSketchUpOpen && <SketchUpExportModal isOpen={isSketchUpOpen} onClose={() => setIsSketchUpOpen(false)} room={currentRoom} onNotify={showToast} />}
+      {isSketchUpOpen && <SketchUpExportModal isOpen={isSketchUpOpen} onClose={() => setIsSketchUpOpen(false)} room={currentRoom} rooms={rooms} stitchedPlan={stitchedPlan} projectName={projectName} onNotify={showToast} />}
       {isScanTutorialOpen && <ScanningTutorialModal isOpen={isScanTutorialOpen} onClose={() => setIsScanTutorialOpen(false)} onStartScan={() => { setIsScanTutorialOpen(false); setIsCameraScanOpen(true); }} onNotify={showToast} />}
       {isUiComfortOpen && <UiComfortSettingsModal isOpen={isUiComfortOpen} onClose={() => setIsUiComfortOpen(false)} config={uiComfort} onChangeConfig={setUiComfort} onNotify={showToast} />}
       <DrawingSaveHabitsModal isOpen={isDrawingHabitsOpen} onClose={() => setIsDrawingHabitsOpen(false)} room={currentRoom} onUpdateRoom={handleUpdateRoom} onNotify={showToast} />
